@@ -27,7 +27,7 @@ Esta aplicación permite:
 
 ### ✨ Características
 1. **Interfaz Intuitiva**: Desarrollada con React y animaciones fluidas mediante Framer Motion.
-- **API REST**: Backend potente construido con Django REST Framework para una comunicación eficiente.
+2. **API REST**: Backend potente construido con Django REST Framework para una comunicación eficiente.
 3. **Persistencia de Datos**: Gestión de base de datos relacional para asegurar la integridad de la información.
 
 ### 🎯 Casos de Uso
