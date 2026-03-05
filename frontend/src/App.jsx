@@ -185,7 +185,7 @@ function App() {
           <div className="relative flex-1">
             <input
               className={`w-full ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"} p-4 px-12 rounded-2xl outline-none shadow-sm text-sm`}
-              placeholder="Search missions..."
+              placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -302,7 +302,7 @@ function App() {
               />
             </div>
             <button className="bg-blue-600 hover:bg-blue-700 text-white p-5 rounded-2xl font-black text-sm transition-all shadow-lg flex items-center justify-center gap-3 active:scale-95">
-              <Plus size={20} /> DEPLOY MISSION
+              <Plus size={20} /> ADD
             </button>
           </div>
         </form>
