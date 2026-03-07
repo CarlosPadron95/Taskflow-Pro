@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
-import { motion, Reorder, AnimatePresence } from "framer-motion";
+import { Reorder, AnimatePresence } from "framer-motion";
 import {
   Sun,
   Moon,
@@ -13,8 +13,14 @@ import {
   Calendar,
 } from "lucide-react";
 import "./index.css";
+import Login from "./components/Login";
+import Register from "./components/Register";
 
 function App() {
+  // Persisto el token en localStorage para mantener la sesión al recargar
+  const [token, setToken] = useState(localStorage.getItem("access") || "");
+  const [showRegister, setShowRegister] = useState(false);
+
   // Manejo el estado global de las tareas y los parámetros de la interfaz
   const [tasks, setTasks] = useState([]);
   const [darkMode, setDarkMode] = useState(false);
@@ -36,17 +42,37 @@ function App() {
     import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api/tasks/";
 
   // Sincronizo con el backend añadiendo un timestamp para evitar datos antiguos por caché
-  const fetchTasks = () => {
-    axios.get(`${API_URL}?t=${new Date().getTime()}`).then((res) => {
-      // Ordeno por ID descendente para que lo último creado aparezca primero
-      const sortedTasks = res.data.sort((a, b) => b.id - a.id);
-      setTasks(sortedTasks);
-    });
-  };
+  // useCallback evita que fetchTasks se recree en cada render
+  const fetchTasks = useCallback(() => {
+    if (!token) return;
+    axios
+      .get(`${API_URL}?t=${new Date().getTime()}`, {
+        // Incluyo el token JWT en cada petición para autenticar al usuario
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        // Ordeno por ID descendente para que lo último creado aparezca primero
+        const sortedTasks = res.data.sort((a, b) => b.id - a.id);
+        setTasks(sortedTasks);
+      });
+  }, [token]);
 
+  // Recargo las tareas cada vez que el token cambia (login/logout)
   useEffect(() => {
     fetchTasks();
-  }, []);
+  }, [fetchTasks]);
+
+  // Redirijo a login/registro si no hay token activo
+  if (!token) {
+    return showRegister ? (
+      <Register
+        onRegister={setToken}
+        goToLogin={() => setShowRegister(false)}
+      />
+    ) : (
+      <Login onLogin={setToken} goToRegister={() => setShowRegister(true)} />
+    );
+  }
 
   // Calculo métricas en tiempo real basándome en el estado actual de las tareas
   const stats = {
@@ -63,7 +89,9 @@ function App() {
     // Normalizo la fecha: si está vacía envío null para que Django la procese correctamente
     const dataToSend = { ...formData, due_date: formData.due_date || null };
     try {
-      await axios.post(API_URL, dataToSend);
+      await axios.post(API_URL, dataToSend, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setFormData({
         title: "",
         description: "",
@@ -74,23 +102,33 @@ function App() {
       });
       fetchTasks();
     } catch (err) {
-      console.error("Error al guardar la misión:", err.response?.data);
+      console.error("Error al guardar la tarea:", err.response?.data);
     }
   };
 
   const deleteTask = (id) => {
     // Actualización optimista: elimino del estado local antes de la confirmación del servidor
     setTasks(tasks.filter((t) => t.id !== id));
-    axios.delete(`${API_URL}${id}/`);
+    axios.delete(`${API_URL}${id}/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
   };
 
   // Actualizo campos individuales mediante PATCH para optimizar el tráfico de red
   const updateTask = (id, field, value) => {
     const finalValue = field === "due_date" && !value ? null : value;
-    axios.patch(`${API_URL}${id}/`, { [field]: finalValue }).then(() => {
-      // Actualizo solo la tarea modificada en el estado inmutable
-      setTasks(tasks.map((t) => (t.id === id ? { ...t, [field]: value } : t)));
-    });
+    axios
+      .patch(
+        `${API_URL}${id}/`,
+        { [field]: finalValue },
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      .then(() => {
+        // Actualizo solo la tarea modificada en el estado inmutable
+        setTasks(
+          tasks.map((t) => (t.id === id ? { ...t, [field]: value } : t)),
+        );
+      });
   };
 
   // Lógica de filtrado combinada para búsqueda de texto y etiquetas
@@ -152,12 +190,25 @@ function App() {
           <h1 className="text-3xl font-black tracking-tighter italic">
             TASKFLOW <span className="text-blue-600 font-light">PRO</span>
           </h1>
-          <button
-            onClick={() => setDarkMode(!darkMode)}
-            className={`p-3 rounded-2xl shadow-lg transition-all ${darkMode ? "bg-slate-800 text-yellow-400" : "bg-white text-slate-500"}`}
-          >
-            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
+          <div className="flex gap-3">
+            {/* Limpio el token del estado y localStorage al cerrar sesión */}
+            <button
+              onClick={() => {
+                localStorage.removeItem("access");
+                localStorage.removeItem("refresh");
+                setToken("");
+              }}
+              className="p-3 rounded-2xl shadow-lg bg-white text-red-500 text-xs font-black"
+            >
+              LOGOUT
+            </button>
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className={`p-3 rounded-2xl shadow-lg transition-all ${darkMode ? "bg-slate-800 text-yellow-400" : "bg-white text-slate-500"}`}
+            >
+              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+          </div>
         </header>
 
         {/* DASHBOARD DE ESTADÍSTICAS */}
@@ -201,15 +252,9 @@ function App() {
               onChange={(e) => setFilterPriority(e.target.value)}
             >
               <option value="All">Priority: All</option>
-              <option value="High" className="text-red-600">
-                High
-              </option>
-              <option value="Medium" className="text-orange-500">
-                Medium
-              </option>
-              <option value="Low" className="text-emerald-600">
-                Low
-              </option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
             </select>
             <select
               className={`${darkMode ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-500"} p-4 rounded-2xl text-xs font-bold outline-none shadow-sm min-w-32`}
@@ -418,7 +463,7 @@ function App() {
 
                     <button
                       onClick={() => deleteTask(task.id)}
-                      className={`p-2 rounded-xl transition-all duration-300 opacity-20 group-hover:opacity-100 flex items-center justify-center hover:scale-125 hover:bg-red-500/20 text-slate-400 hover:text-red-600`}
+                      className="p-2 rounded-xl transition-all duration-300 opacity-20 group-hover:opacity-100 flex items-center justify-center hover:scale-125 hover:bg-red-500/20 text-slate-400 hover:text-red-600"
                     >
                       <Trash2 size={22} />
                     </button>
