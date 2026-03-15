@@ -1,8 +1,5 @@
-// ─── ARCHIVO DE TRADUCCIONES ─────────────────────────────────────────────────
-// Contiene todos los textos de la app en español e inglés.
-// Para añadir un idioma nuevo basta con añadir una clave nueva al objeto.
-// Para añadir un texto nuevo hay que añadirlo en los dos idiomas.
-// ────────────────────────────────────────────────────────────────────────────
+// traducciones de la app en español e inglés
+// para añadir un texto nuevo hay que añadirlo en los dos idiomas
 const translations = {
   es: {
     // LOGIN
@@ -98,7 +95,7 @@ const translations = {
     empty_filters_subtitle: "Prueba a ajustar la búsqueda o los filtros.",
     clear_filters: "Limpiar filtros",
 
-    // MODAL CLEAR ALL
+    // MODAL BORRAR TODO
     modal_title: "¿Eliminar todas las tareas?",
     modal_body_singular: "tarea",
     modal_body_plural: "tareas",
@@ -110,6 +107,7 @@ const translations = {
     // TOASTS
     toast_created: "Tarea creada ✓",
     toast_saved: "Guardado ✓",
+    toast_completed: "Tarea completada ✓",
     toast_deleted: "Tarea eliminada",
     toast_all_deleted: "Todas las tareas eliminadas",
     toast_error: "Error al guardar",
@@ -209,7 +207,7 @@ const translations = {
     empty_filters_subtitle: "Try adjusting your search or filters.",
     clear_filters: "Clear filters",
 
-    // MODAL CLEAR ALL
+    // MODAL BORRAR TODO
     modal_title: "Delete all tasks?",
     modal_body_singular: "task",
     modal_body_plural: "tasks",
@@ -221,6 +219,7 @@ const translations = {
     // TOASTS
     toast_created: "Task created ✓",
     toast_saved: "Saved ✓",
+    toast_completed: "Task completed ✓",
     toast_deleted: "Task deleted",
     toast_all_deleted: "All tasks deleted",
     toast_error: "Error saving task",

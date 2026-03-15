@@ -363,7 +363,14 @@ function App() {
             task.id === id ? { ...task, [field]: value } : task,
           ),
         );
-        showToast(t.toast_saved);
+        // al marcar completada muestra mensaje, al desmarcar no muestra nada
+        if (field === "status" && value === "Completed") {
+          showToast(t.toast_completed);
+        } else if (field === "status" && value === "Pending") {
+          // no mostramos toast al desmarcar
+        } else {
+          showToast(t.toast_saved);
+        }
       });
   };
 
@@ -654,7 +661,92 @@ function App() {
               }
             />
 
-            <div className="grid grid-cols-3 gap-3">
+            {/* móvil: fila 1 → etiqueta + prioridad */}
+            <div className="grid grid-cols-2 gap-3 sm:hidden">
+              <select
+                className={`${darkMode ? "bg-slate-800" : "bg-slate-100"} p-4 rounded-2xl text-xs font-bold outline-none`}
+                value={formData.category}
+                onChange={(e) =>
+                  setFormData({ ...formData, category: e.target.value })
+                }
+              >
+                <option value="General">🏷️ {t.tag_general}</option>
+                <option value="Work">💼 {t.tag_work}</option>
+                <option value="Home">🏠 {t.tag_home}</option>
+                <option value="Urgent">🔥 {t.tag_urgent}</option>
+              </select>
+              <select
+                className={`${darkMode ? "bg-slate-800" : "bg-slate-100"} p-4 rounded-2xl text-xs font-bold outline-none ${getPriorityText(formData.priority)}`}
+                value={formData.priority}
+                onChange={(e) =>
+                  setFormData({ ...formData, priority: e.target.value })
+                }
+              >
+                <option value="High">{t.priority_high}</option>
+                <option value="Medium">{t.priority_medium}</option>
+                <option value="Low">{t.priority_low}</option>
+              </select>
+            </div>
+
+            {/* móvil: fila 2 → estado + icono fecha + icono hora */}
+            <div className="grid grid-cols-3 gap-3 sm:hidden">
+              <select
+                className={`${darkMode ? "bg-slate-800" : "bg-slate-100"} p-4 rounded-2xl text-xs font-bold outline-none ${getStatusText(formData.status)}`}
+                value={formData.status}
+                onChange={(e) =>
+                  setFormData({ ...formData, status: e.target.value })
+                }
+              >
+                <option value="Pending">{t.status_pending}</option>
+                <option value="In Progress">{t.status_in_progress}</option>
+                <option value="Completed">{t.status_completed}</option>
+              </select>
+
+              <div
+                onClick={openFormDatePicker}
+                className={`${darkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"} p-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer`}
+              >
+                <Calendar size={16} className="shrink-0" />
+                <input
+                  ref={formDateRef}
+                  type="date"
+                  className="bg-transparent outline-none text-xs font-bold pointer-events-none w-full"
+                  value={formData.due_date}
+                  onChange={(e) =>
+                    setFormData({ ...formData, due_date: e.target.value })
+                  }
+                />
+              </div>
+
+              {/* bloqueado si no hay fecha */}
+              <div
+                onClick={openFormTimePicker}
+                title={!formData.due_date ? t.form_add_date_first : ""}
+                className={`p-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-opacity ${
+                  formData.due_date
+                    ? `cursor-pointer ${darkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"}`
+                    : "cursor-not-allowed opacity-40 " +
+                      (darkMode
+                        ? "bg-slate-800 text-slate-500"
+                        : "bg-slate-100 text-slate-400")
+                }`}
+              >
+                <Clock size={16} className="shrink-0" />
+                <input
+                  ref={formTimeRef}
+                  type="time"
+                  disabled={!formData.due_date}
+                  className="bg-transparent outline-none text-xs font-bold pointer-events-none disabled:cursor-not-allowed w-full"
+                  value={formData.due_time}
+                  onChange={(e) =>
+                    setFormData({ ...formData, due_time: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            {/* pc: 3 columnas — etiqueta, prioridad, estado */}
+            <div className="hidden sm:grid grid-cols-3 gap-3">
               <select
                 className={`${darkMode ? "bg-slate-800" : "bg-slate-100"} p-4 rounded-2xl text-xs font-bold outline-none`}
                 value={formData.category}
@@ -691,8 +783,8 @@ function App() {
               </select>
             </div>
 
-            {/* fecha y hora — la hora se bloquea si no hay fecha */}
-            <div className="flex justify-center gap-3">
+            {/* pc: fecha y hora con texto, la hora se bloquea si no hay fecha */}
+            <div className="hidden sm:flex justify-center gap-3">
               <div
                 onClick={openFormDatePicker}
                 className={`${darkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"} p-4 rounded-2xl text-xs font-bold flex items-center gap-2 cursor-pointer`}
@@ -709,7 +801,6 @@ function App() {
                   }
                 />
               </div>
-
               <div
                 onClick={openFormTimePicker}
                 title={!formData.due_date ? t.form_add_date_first : ""}
@@ -818,7 +909,6 @@ function App() {
                 <option value="status">{t.sort_status}</option>
               </select>
             </div>
-
             <button
               onClick={() => setShowClearAllModal(true)}
               className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${

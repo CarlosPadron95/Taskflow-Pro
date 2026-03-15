@@ -123,7 +123,7 @@ export default function TaskCard({
       exit={{ opacity: 0, scale: 0.9 }}
       className={`${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"} border-l-[6px] ${prio.border} rounded-4xl p-6 shadow-sm border group cursor-grab active:cursor-grabbing`}
     >
-      <div className="flex items-center gap-5">
+      <div className="flex items-start gap-5">
         {/* checkbox — marca como completada o la vuelve a pending */}
         <button
           onClick={() =>
@@ -133,7 +133,7 @@ export default function TaskCard({
               task.status === "Completed" ? "Pending" : "Completed",
             )
           }
-          className={`transition-all transform hover:scale-110 ${task.status === "Completed" ? "text-emerald-500" : "text-slate-300"}`}
+          className={`mt-1 transition-all transform hover:scale-110 shrink-0 ${task.status === "Completed" ? "text-emerald-500" : "text-slate-300"}`}
         >
           {task.status === "Completed" ? (
             <CheckCircle2 size={28} />
@@ -142,7 +142,7 @@ export default function TaskCard({
           )}
         </button>
 
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-2">
             {/* doble clic para editar el título */}
             {isEditingTitle ? (
@@ -296,30 +296,31 @@ export default function TaskCard({
           </div>
         </div>
 
-        {/* la papelera se oculta cuando se está esperando confirmación */}
+        {/* en escritorio la papelera va a la derecha dentro de la tarjeta
+            en móvil se oculta aquí y aparece abajo al confirmar */}
         {!isPendingDelete && (
           <button
             onClick={() => setConfirmDeleteId(task.id)}
-            className="p-2 rounded-xl transition-all duration-300 opacity-40 group-hover:opacity-100 flex items-center justify-center hover:scale-125 hover:bg-red-500/20 text-slate-400 hover:text-red-600"
+            className="shrink-0 p-2 rounded-xl transition-all duration-300 opacity-40 group-hover:opacity-100 flex items-center justify-center hover:scale-125 hover:bg-red-500/20 text-slate-400 hover:text-red-600"
           >
             <Trash2 size={22} />
           </button>
         )}
       </div>
 
-      {/* botones de confirmación fuera del flex principal para que en móvil
-          no se salgan de la pantalla */}
+      {/* en escritorio los botones van inline a la derecha del contenido
+          en móvil se muestran abajo para que no se salgan de la pantalla */}
       {isPendingDelete && (
-        <div className="flex gap-2 mt-4 w-full">
+        <div className="flex gap-2 mt-4 w-full sm:mt-0 sm:w-auto sm:absolute sm:right-6 sm:top-1/2 sm:-translate-y-1/2">
           <button
             onClick={() => deleteTask(task.id)}
-            className="flex-1 py-2 rounded-xl bg-red-500 text-white text-xs font-black hover:bg-red-600 transition-all active:scale-95"
+            className="flex-1 sm:flex-none px-3 py-2 rounded-xl bg-red-500 text-white text-xs font-black hover:bg-red-600 transition-all active:scale-95"
           >
             {t.card_delete}
           </button>
           <button
             onClick={() => setConfirmDeleteId(null)}
-            className={`flex-1 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${
+            className={`flex-1 sm:flex-none px-3 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${
               darkMode
                 ? "bg-slate-700 text-slate-300 hover:bg-slate-600"
                 : "bg-slate-100 text-slate-500 hover:bg-slate-200"
