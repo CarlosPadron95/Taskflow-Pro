@@ -1,12 +1,14 @@
 import { useState } from "react";
 import axios from "axios";
+import { Globe } from "lucide-react";
+import translations from "../i18n";
 
-// Elimino solo "tasks/" para evitar la doble barra en la URL de auth
 const BASE_URL =
   import.meta.env.VITE_API_URL?.replace("tasks/", "") ||
   "http://127.0.0.1:8000/api/";
 
-export default function Login({ onLogin, goToRegister }) {
+export default function Login({ onLogin, goToRegister, lang, toggleLang }) {
+  const t = translations[lang];
   const [formData, setFormData] = useState({ username: "", password: "" });
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
@@ -14,32 +16,38 @@ export default function Login({ onLogin, goToRegister }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Solicito el par de tokens JWT al backend
       const res = await axios.post(`${BASE_URL}auth/login/`, formData);
 
-      // Si marcó "Recuérdame" guardo en localStorage (persiste al cerrar el navegador)
-      // Si no, guardo en sessionStorage (se borra al cerrar el navegador)
+      // localStorage persiste al cerrar el navegador, sessionStorage no
       const storage = rememberMe ? localStorage : sessionStorage;
       storage.setItem("access", res.data.access);
       storage.setItem("refresh", res.data.refresh);
 
       onLogin(res.data.access);
     } catch {
-      setError("Usuario o contraseña incorrectos");
+      setError(t.login_error);
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
       <div className="bg-white rounded-3xl shadow-xl p-10 w-full max-w-md">
-        <h1 className="text-3xl font-black tracking-tighter italic mb-2">
-          TASKFLOW <span className="text-blue-600 font-light">PRO</span>
-        </h1>
-        <p className="text-slate-400 text-sm mb-8">
-          Inicia sesión para continuar
-        </p>
+        {/* logo y botón de idioma en la misma fila */}
+        <div className="flex justify-between items-start mb-2">
+          <h1 className="text-3xl font-black tracking-tighter italic">
+            TASKFLOW <span className="text-blue-600 font-light">PRO</span>
+          </h1>
+          <button
+            onClick={toggleLang}
+            className="flex items-center gap-2 px-3 py-2 rounded-2xl text-xs font-black bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all active:scale-95"
+          >
+            <Globe size={14} />
+            {lang === "es" ? "ES" : "EN"}
+          </button>
+        </div>
 
-        {/* Muestro el error solo si existe */}
+        <p className="text-slate-400 text-sm mb-8">{t.login_subtitle}</p>
+
         {error && (
           <p className="text-red-500 text-sm mb-4 bg-red-50 p-3 rounded-xl">
             {error}
@@ -49,7 +57,7 @@ export default function Login({ onLogin, goToRegister }) {
         <div className="space-y-4">
           <input
             className="w-full bg-slate-50 p-4 rounded-2xl outline-none text-sm font-medium"
-            placeholder="Usuario"
+            placeholder={t.login_username}
             value={formData.username}
             onChange={(e) =>
               setFormData({ ...formData, username: e.target.value })
@@ -58,14 +66,14 @@ export default function Login({ onLogin, goToRegister }) {
           <input
             type="password"
             className="w-full bg-slate-50 p-4 rounded-2xl outline-none text-sm font-medium"
-            placeholder="Contraseña"
+            placeholder={t.login_password}
             value={formData.password}
             onChange={(e) =>
               setFormData({ ...formData, password: e.target.value })
             }
           />
 
-          {/* Checkbox "Recuérdame": controla si la sesión persiste o no al cerrar el navegador */}
+          {/* checkbox personalizado porque el nativo es muy feo */}
           <label className="flex items-center gap-3 cursor-pointer select-none">
             <div
               onClick={() => setRememberMe(!rememberMe)}
@@ -92,7 +100,7 @@ export default function Login({ onLogin, goToRegister }) {
               )}
             </div>
             <span className="text-sm text-slate-500 font-medium">
-              Recuérdame
+              {t.login_remember}
             </span>
           </label>
 
@@ -100,17 +108,17 @@ export default function Login({ onLogin, goToRegister }) {
             onClick={handleSubmit}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-2xl font-black text-sm transition-all shadow-lg active:scale-95"
           >
-            INICIAR SESIÓN
+            {t.login_button}
           </button>
         </div>
 
         <p className="text-center text-sm text-slate-400 mt-6">
-          ¿No tienes cuenta?{" "}
+          {t.login_no_account}{" "}
           <button
             onClick={goToRegister}
             className="text-blue-600 font-bold hover:underline"
           >
-            Regístrate
+            {t.login_register_link}
           </button>
         </p>
       </div>

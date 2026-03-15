@@ -1,6 +1,10 @@
 from pathlib import Path
 from datetime import timedelta
+from dotenv import load_dotenv
 import os
+
+# carga las variables del archivo .env en local
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -23,6 +27,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # cors tiene que ir primero para que funcione bien
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -53,7 +58,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "backend.wsgi.application"
 
-# Usa PostgreSQL en producción (Render) y MySQL en local
+# en local uso MySQL, en producción (Render) PostgreSQL según las variables de entorno
 if os.environ.get("DB_HOST"):
     DATABASES = {
         "default": {
@@ -71,7 +76,7 @@ else:
             "ENGINE": "django.db.backends.mysql",
             "NAME": "taskflow_db",
             "USER": "root",
-            "PASSWORD": "Zwanckpadron2024",
+            "PASSWORD": os.environ.get("DB_PASSWORD", ""),
             "HOST": "127.0.0.1",
             "PORT": "3306",
         }
@@ -93,27 +98,27 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-# En producción solo permite los orígenes definidos en la variable de entorno
+# en producción solo los orígenes definidos en la variable de entorno
 CORS_ALLOWED_ORIGINS = os.environ.get(
     "CORS_ALLOWED_ORIGINS", "http://localhost:5173"
 ).split(",")
 
-# En local permito todos los orígenes para facilitar el desarrollo
+# en local abro todos los orígenes para no tener que tocar esto cada vez
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
-    'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
     ),
 }
 
-# Configuro la duración de los tokens JWT
+# access token dura 1 hora, refresh 7 días
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
 }

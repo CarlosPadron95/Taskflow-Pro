@@ -6,19 +6,22 @@ import {
   Sun,
   Moon,
   Plus,
+  Search,
+  Calendar,
+  Clock,
+  LogOut,
   Trash2,
   CheckCircle2,
-  Circle,
-  Search,
-  Tag,
-  Calendar,
-  LogOut,
+  ArrowUpDown,
+  Globe,
 } from "lucide-react";
 import "./index.css";
 import Login from "./components/Login";
 import Register from "./components/Register";
+import TaskCard from "./components/TaskCard";
+import translations from "./i18n";
 
-// Django SimpleJWT guarda el identificador del usuario como "user_id", no como "username"
+// saca el user_id del token JWT sin llamar al backend
 const getUsernameFromToken = (tkn) => {
   try {
     return JSON.parse(atob(tkn.split(".")[1])).user_id;
@@ -27,7 +30,6 @@ const getUsernameFromToken = (tkn) => {
   }
 };
 
-// Extraigo el username legible del token para mostrarlo en el menú de usuario
 const getDisplayNameFromToken = (tkn) => {
   try {
     return JSON.parse(atob(tkn.split(".")[1])).username;
@@ -36,41 +38,93 @@ const getDisplayNameFromToken = (tkn) => {
   }
 };
 
+// toast que se cierra solo a los 3 segundos
+function Toast({ message, type = "success", onClose }) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 3000);
+    return () => clearTimeout(t);
+  }, [onClose]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 20, scale: 0.95 }}
+      className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl font-bold text-sm ${
+        type === "success"
+          ? "bg-emerald-500 text-white"
+          : "bg-red-500 text-white"
+      }`}
+    >
+      <CheckCircle2 size={18} />
+      {message}
+    </motion.div>
+  );
+}
+
+// tarjeta de carga animada mientras llegan las tareas del backend
+function SkeletonCard({ darkMode }) {
+  return (
+    <div
+      className={`${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"} border-l-[6px] border-l-slate-200 rounded-4xl p-6 shadow-sm border animate-pulse`}
+    >
+      <div className="flex items-center gap-5">
+        <div
+          className={`w-7 h-7 rounded-full ${darkMode ? "bg-slate-700" : "bg-slate-200"}`}
+        />
+        <div className="flex-1 space-y-3">
+          <div
+            className={`h-4 rounded-full w-2/3 ${darkMode ? "bg-slate-700" : "bg-slate-200"}`}
+          />
+          <div
+            className={`h-3 rounded-full w-1/2 ${darkMode ? "bg-slate-800" : "bg-slate-100"}`}
+          />
+          <div
+            className={`h-3 rounded-full w-1/3 ${darkMode ? "bg-slate-800" : "bg-slate-100"}`}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
-  // Leo el token de localStorage (recuérdame activado) o sessionStorage (sesión temporal)
   const [token, setToken] = useState(
     localStorage.getItem("access") || sessionStorage.getItem("access") || "",
   );
   const [showRegister, setShowRegister] = useState(false);
-
   const [tasks, setTasks] = useState([]);
-
-  // Inicializo en false — el useEffect cargará la preferencia correcta del usuario una vez logueado
   const [darkMode, setDarkMode] = useState(false);
-
   const [searchTerm, setSearchTerm] = useState("");
   const [filterPriority, setFilterPriority] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterCategory, setFilterCategory] = useState("All");
-
-  // Controlo qué campo de qué tarea está en modo edición inline
-  // editingField = { id: number, field: "title" | "description" }
   const [editingField, setEditingField] = useState(null);
-
-  // Valor temporal mientras el usuario edita, antes de guardar en el backend
   const [editingValue, setEditingValue] = useState("");
-
-  // Guardo el ID de la tarea que está esperando confirmación de borrado
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-
-  // Controlo si el menú desplegable de usuario está abierto o cerrado
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [showClearAllModal, setShowClearAllModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [toast, setToast] = useState(null);
+  const [sortBy, setSortBy] = useState("default");
+  const [titleError, setTitleError] = useState("");
 
-  // Referencia al menú para detectar clics fuera y cerrarlo automáticamente
+  // idioma guardado en localStorage para que no se pierda al recargar
+  const [lang, setLang] = useState(localStorage.getItem("lang") || "es");
+  const t = translations[lang];
+
+  const toggleLang = () => {
+    const next = lang === "es" ? "en" : "es";
+    setLang(next);
+    localStorage.setItem("lang", next);
+  };
+
   const userMenuRef = useRef(null);
-
-  // Guardo el número anterior de tareas completadas para detectar cuándo se completan todas
   const prevDoneRef = useRef(0);
+
+  // este estado no se usa directamente, solo sirve para forzar un re-render cada minuto
+  // y que las tarjetas recalculen si están vencidas
+  const [, setTick] = useState(0);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -78,28 +132,55 @@ function App() {
     priority: "Medium",
     status: "Pending",
     due_date: "",
+    due_time: "",
     category: "General",
   });
 
   const API_URL =
     import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api/tasks/";
+  const AUTH_URL = API_URL.replace("/tasks/", "/auth/");
+
+  // refs para abrir el datepicker al clicar en cualquier parte del recuadro
+  const formDateRef = useRef(null);
+  const formTimeRef = useRef(null);
+
+  const openFormDatePicker = () => {
+    try {
+      formDateRef.current?.showPicker();
+    } catch {
+      formDateRef.current?.focus();
+    }
+  };
+
+  const openFormTimePicker = () => {
+    if (!formData.due_date) return;
+    try {
+      formTimeRef.current?.showPicker();
+    } catch {
+      formTimeRef.current?.focus();
+    }
+  };
+
+  const showToast = useCallback((message, type = "success") => {
+    setToast({ message, type });
+  }, []);
 
   const fetchTasks = useCallback(() => {
     if (!token) return;
+    setIsLoading(true);
     axios
       .get(`${API_URL}?t=${new Date().getTime()}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      .then((res) => {
-        const sortedTasks = res.data.sort((a, b) => b.id - a.id);
-        setTasks(sortedTasks);
-      });
+      .then((res) => setTasks(res.data.sort((a, b) => b.id - a.id)))
+      .finally(() => setIsLoading(false));
   }, [token]);
 
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
 
+  // cargo el darkMode guardado para este usuario concreto
   useEffect(() => {
     if (!token) return;
     const username = getUsernameFromToken(token);
@@ -107,7 +188,7 @@ function App() {
     setDarkMode(savedDark);
   }, [token]);
 
-  // Cierro el menú de usuario al hacer clic fuera de él
+  // cierra el menú de usuario si se hace clic fuera
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
@@ -118,12 +199,10 @@ function App() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Disparo el confeti cuando todas las tareas pasan a estar completadas
-  // Solo se activa si había tareas pendientes antes (evita confeti al cargar la página)
+  // confeti cuando se completan todas las tareas
   useEffect(() => {
     const total = tasks.length;
     const done = tasks.filter((t) => t.status === "Completed").length;
-
     if (total > 0 && done === total && prevDoneRef.current < total) {
       confetti({
         particleCount: 150,
@@ -132,19 +211,73 @@ function App() {
         colors: ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"],
       });
     }
-
-    // Actualizo la referencia con el número actual de completadas para la próxima comparación
     prevDoneRef.current = done;
   }, [tasks]);
+
+  // re-render cada minuto para actualizar el estado overdue de las tarjetas
+  useEffect(() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // interceptor de axios para renovar el token automáticamente cuando expira
+  // si el refresh también falla hace logout directo
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const original = error.config;
+        // _retry evita que entre en bucle infinito si el refresh también da 401
+        if (error.response?.status === 401 && !original._retry) {
+          original._retry = true;
+          const refresh =
+            localStorage.getItem("refresh") ||
+            sessionStorage.getItem("refresh");
+          if (refresh) {
+            try {
+              const { data } = await axios.post(`${AUTH_URL}refresh/`, {
+                refresh,
+              });
+              const newAccess = data.access;
+              if (localStorage.getItem("refresh")) {
+                localStorage.setItem("access", newAccess);
+              } else {
+                sessionStorage.setItem("access", newAccess);
+              }
+              setToken(newAccess);
+              original.headers["Authorization"] = `Bearer ${newAccess}`;
+              return axios(original);
+            } catch {
+              setTasks([]);
+              setToken("");
+              localStorage.removeItem("access");
+              localStorage.removeItem("refresh");
+              sessionStorage.removeItem("access");
+              sessionStorage.removeItem("refresh");
+            }
+          }
+        }
+        return Promise.reject(error);
+      },
+    );
+    return () => axios.interceptors.response.eject(interceptor);
+  }, [AUTH_URL]);
 
   if (!token) {
     return showRegister ? (
       <Register
         onRegister={setToken}
         goToLogin={() => setShowRegister(false)}
+        lang={lang}
+        toggleLang={toggleLang}
       />
     ) : (
-      <Login onLogin={setToken} goToRegister={() => setShowRegister(true)} />
+      <Login
+        onLogin={setToken}
+        goToRegister={() => setShowRegister(true)}
+        lang={lang}
+        toggleLang={toggleLang}
+      />
     );
   }
 
@@ -157,8 +290,19 @@ function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.title) return;
-    const dataToSend = { ...formData, due_date: formData.due_date || null };
+
+    // el título es obligatorio
+    if (!formData.title.trim()) {
+      setTitleError(t.form_title_error);
+      return;
+    }
+    setTitleError("");
+
+    const dataToSend = {
+      ...formData,
+      due_date: formData.due_date || null,
+      due_time: formData.due_time || null,
+    };
     try {
       await axios.post(API_URL, dataToSend, {
         headers: { Authorization: `Bearer ${token}` },
@@ -169,25 +313,44 @@ function App() {
         priority: "Medium",
         status: "Pending",
         due_date: "",
+        due_time: "",
         category: "General",
       });
       fetchTasks();
+      showToast(t.toast_created);
     } catch (err) {
       console.error("Error al guardar la tarea:", err.response?.data);
+      showToast(t.toast_error, "error");
     }
   };
 
-  // Elimino la tarea del estado local y del backend tras confirmación del usuario
   const deleteTask = (id) => {
-    setTasks(tasks.filter((t) => t.id !== id));
+    setTasks(tasks.filter((task) => task.id !== id));
     setConfirmDeleteId(null);
     axios.delete(`${API_URL}${id}/`, {
       headers: { Authorization: `Bearer ${token}` },
     });
+    showToast(t.toast_deleted, "error");
+  };
+
+  // borra todas las tareas en paralelo para que sea más rápido
+  const clearAllTasks = async () => {
+    await Promise.all(
+      tasks.map((task) =>
+        axios.delete(`${API_URL}${task.id}/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ),
+    );
+    setTasks([]);
+    setShowClearAllModal(false);
+    showToast(t.toast_all_deleted, "error");
   };
 
   const updateTask = (id, field, value) => {
-    const finalValue = field === "due_date" && !value ? null : value;
+    // si se borra la fecha o la hora mando null en vez de string vacío
+    const finalValue =
+      (field === "due_date" || field === "due_time") && !value ? null : value;
     axios
       .patch(
         `${API_URL}${id}/`,
@@ -196,23 +359,19 @@ function App() {
       )
       .then(() => {
         setTasks(
-          tasks.map((t) => (t.id === id ? { ...t, [field]: value } : t)),
+          tasks.map((task) =>
+            task.id === id ? { ...task, [field]: value } : task,
+          ),
         );
+        showToast(t.toast_saved);
       });
   };
 
-  // Activo el modo edición inline al hacer doble clic en título o descripción
-  const startEditing = (task, field) => {
-    setEditingField({ id: task.id, field });
-    setEditingValue(task[field] || "");
-  };
-
-  // Guardo los cambios en el backend al salir del campo (onBlur) o pulsar Enter
   const saveEditing = () => {
     if (!editingField) return;
-    // Solo guardo si el valor ha cambiado para evitar llamadas innecesarias al backend
     const original =
-      tasks.find((t) => t.id === editingField.id)?.[editingField.field] || "";
+      tasks.find((task) => task.id === editingField.id)?.[editingField.field] ||
+      "";
     if (editingValue.trim() !== original) {
       updateTask(editingField.id, editingField.field, editingValue.trim());
     }
@@ -220,16 +379,26 @@ function App() {
     setEditingValue("");
   };
 
-  // Cancelo la edición con Escape sin guardar cambios
   const cancelEditing = (e) => {
     if (e.key === "Escape") {
       setEditingField(null);
       setEditingValue("");
     }
-    // Guardo con Enter en el título (no en descripción para permitir saltos de línea)
-    if (e.key === "Enter" && editingField?.field === "title") {
-      saveEditing();
-    }
+    if (e.key === "Enter" && editingField?.field === "title") saveEditing();
+  };
+
+  // para saber si hay algún filtro activo y mostrar el empty state correcto
+  const hasActiveFilters =
+    searchTerm !== "" ||
+    filterPriority !== "All" ||
+    filterStatus !== "All" ||
+    filterCategory !== "All";
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setFilterPriority("All");
+    setFilterStatus("All");
+    setFilterCategory("All");
   };
 
   const filteredTasks = tasks.filter((task) => {
@@ -245,51 +414,46 @@ function App() {
     return matchesSearch && matchesPriority && matchesStatus && matchesCategory;
   });
 
-  const getPriorityClasses = (p) => {
-    if (p === "High")
-      return {
-        border: "border-l-red-600",
-        text: "text-red-600",
-        bg: "bg-red-50",
-      };
-    if (p === "Medium")
-      return {
-        border: "border-l-orange-400",
-        text: "text-orange-500",
-        bg: "bg-orange-50",
-      };
-    if (p === "Low")
-      return {
-        border: "border-l-emerald-500",
-        text: "text-emerald-600",
-        bg: "bg-emerald-50",
-      };
-    return {
-      border: "border-l-slate-300",
-      text: "text-slate-500",
-      bg: "bg-slate-50",
-    };
+  // ordenación — sin fecha siempre al final, sin hora al final del mismo día
+  const priorityOrder = { High: 0, Medium: 1, Low: 2 };
+  const statusOrder = { Pending: 0, "In Progress": 1, Completed: 2 };
+
+  const sortedTasks = [...filteredTasks].sort((a, b) => {
+    if (sortBy === "date") {
+      if (!a.due_date && !b.due_date) return 0;
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+      const dateA = new Date(a.due_date);
+      const dateB = new Date(b.due_date);
+      if (dateA - dateB !== 0) return dateA - dateB;
+      if (!a.due_time && !b.due_time) return 0;
+      if (!a.due_time) return 1;
+      if (!b.due_time) return -1;
+      return a.due_time.localeCompare(b.due_time);
+    }
+    if (sortBy === "priority")
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    if (sortBy === "status")
+      return statusOrder[a.status] - statusOrder[b.status];
+    return 0;
+  });
+
+  // solo se usan en el formulario, las tarjetas tienen sus propias funciones
+  const getPriorityText = (p) => {
+    if (p === "High") return "text-red-600";
+    if (p === "Medium") return "text-orange-500";
+    if (p === "Low") return "text-emerald-600";
+    return "text-slate-500";
   };
 
-  const getStatusClasses = (s) => {
-    if (s === "Pending") return { bg: "bg-red-100", text: "text-red-700" };
-    if (s === "In Progress")
-      return { bg: "bg-orange-100", text: "text-orange-700" };
-    if (s === "Completed")
-      return { bg: "bg-emerald-100", text: "text-emerald-700" };
-    return { bg: "bg-slate-100", text: "text-slate-700" };
+  const getStatusText = (s) => {
+    if (s === "Pending") return "text-red-700";
+    if (s === "In Progress") return "text-orange-700";
+    if (s === "Completed") return "text-emerald-700";
+    return "text-slate-700";
   };
 
-  // Compruebo si una tarea está vencida: tiene fecha, esa fecha ya pasó y no está completada
-  const isOverdue = (task) =>
-    task.due_date &&
-    new Date(task.due_date) < new Date() &&
-    task.status !== "Completed";
-
-  // Extraigo el nombre del usuario logueado para mostrarlo en el menú
   const displayName = getDisplayNameFromToken(token);
-
-  // Genero la inicial del nombre para el avatar circular
   const avatarLetter = displayName?.charAt(0).toUpperCase() || "?";
 
   return (
@@ -297,90 +461,89 @@ function App() {
       className={`min-h-screen transition-all duration-500 ${darkMode ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-900"} p-6 md:p-12 font-sans`}
     >
       <div className="max-w-5xl mx-auto">
-        {/* HEADER CON LOGO Y MENÚ DE USUARIO */}
+        {/* header */}
         <header className="mb-8 flex justify-between items-center border-b border-slate-200 pb-6">
           <h1 className="text-3xl font-black tracking-tighter italic">
             TASKFLOW <span className="text-blue-600 font-light">PRO</span>
           </h1>
-
-          {/* MENÚ DE USUARIO: avatar con inicial que abre un dropdown con dark mode y logout */}
-          <div className="relative" ref={userMenuRef}>
+          <div className="flex items-center gap-3">
+            {/* botón de idioma — también se pasa a Login y Register */}
             <button
-              onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="w-11 h-11 rounded-2xl bg-blue-600 text-white font-black text-sm shadow-lg flex items-center justify-center hover:bg-blue-700 transition-all active:scale-95"
+              onClick={toggleLang}
+              className={`flex items-center gap-2 px-3 py-2 rounded-2xl text-xs font-black transition-all hover:scale-105 active:scale-95 ${
+                darkMode
+                  ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  : "bg-white text-slate-600 hover:bg-slate-100"
+              } shadow-sm`}
             >
-              {avatarLetter}
+              <Globe size={14} />
+              {lang === "es" ? "ES" : "EN"}
             </button>
 
-            {/* DROPDOWN: se muestra solo cuando userMenuOpen es true */}
-            {userMenuOpen && (
-              <div
-                className={`absolute right-0 mt-2 w-52 rounded-2xl shadow-xl border z-50 overflow-hidden ${
-                  darkMode
-                    ? "bg-slate-900 border-slate-700"
-                    : "bg-white border-slate-100"
-                }`}
+            {/* menú de usuario */}
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="w-11 h-11 rounded-2xl bg-blue-600 text-white font-black text-sm shadow-lg flex items-center justify-center hover:bg-blue-700 transition-all active:scale-95"
               >
-                {/* Nombre del usuario logueado */}
+                {avatarLetter}
+              </button>
+              {userMenuOpen && (
                 <div
-                  className={`px-4 py-3 border-b ${darkMode ? "border-slate-700" : "border-slate-100"}`}
+                  className={`absolute right-0 mt-2 w-52 rounded-2xl shadow-xl border z-50 overflow-hidden ${darkMode ? "bg-slate-900 border-slate-700" : "bg-white border-slate-100"}`}
                 >
-                  <p className="text-xs text-slate-400 uppercase font-bold tracking-widest">
-                    Logged in as
-                  </p>
-                  <p className="text-sm font-black mt-0.5 truncate">
-                    {displayName}
-                  </p>
+                  <div
+                    className={`px-4 py-3 border-b ${darkMode ? "border-slate-700" : "border-slate-100"}`}
+                  >
+                    <p className="text-xs text-slate-400 uppercase font-bold tracking-widest">
+                      {t.logged_in_as}
+                    </p>
+                    <p className="text-sm font-black mt-0.5 truncate">
+                      {displayName}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const next = !darkMode;
+                      localStorage.setItem(
+                        `darkMode_${getUsernameFromToken(token)}`,
+                        next,
+                      );
+                      setDarkMode(next);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${darkMode ? "hover:bg-slate-800 text-yellow-400" : "hover:bg-slate-50 text-slate-600"}`}
+                  >
+                    {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+                    {darkMode ? t.light_mode : t.dark_mode}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTasks([]);
+                      setToken("");
+                      setUserMenuOpen(false);
+                      localStorage.removeItem("access");
+                      localStorage.removeItem("refresh");
+                      sessionStorage.removeItem("access");
+                      sessionStorage.removeItem("refresh");
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut size={16} />
+                    {t.logout}
+                  </button>
                 </div>
-
-                {/* Botón de dark mode dentro del menú */}
-                <button
-                  onClick={() => {
-                    const next = !darkMode;
-                    localStorage.setItem(
-                      `darkMode_${getUsernameFromToken(token)}`,
-                      next,
-                    );
-                    setDarkMode(next);
-                  }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${
-                    darkMode
-                      ? "hover:bg-slate-800 text-yellow-400"
-                      : "hover:bg-slate-50 text-slate-600"
-                  }`}
-                >
-                  {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-                  {darkMode ? "Light mode" : "Dark mode"}
-                </button>
-
-                {/* Botón de logout: limpia tareas y tokens pero NO el darkMode del usuario */}
-                <button
-                  onClick={() => {
-                    setTasks([]);
-                    setToken("");
-                    setUserMenuOpen(false);
-                    localStorage.removeItem("access");
-                    localStorage.removeItem("refresh");
-                    sessionStorage.removeItem("access");
-                    sessionStorage.removeItem("refresh");
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors"
-                >
-                  <LogOut size={16} />
-                  Logout
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </header>
 
-        {/* DASHBOARD DE ESTADÍSTICAS */}
+        {/* stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
           {[
-            { label: "Total", v: stats.total, c: "text-blue-500" },
-            { label: "Pending", v: stats.pending, c: "text-red-500" },
-            { label: "Active", v: stats.progress, c: "text-orange-500" },
-            { label: "Done", v: stats.done, c: "text-emerald-500" },
+            { label: t.stat_total, v: stats.total, c: "text-blue-500" },
+            { label: t.stat_pending, v: stats.pending, c: "text-red-500" },
+            { label: t.stat_active, v: stats.progress, c: "text-orange-500" },
+            { label: t.stat_done, v: stats.done, c: "text-emerald-500" },
           ].map((s, i) => (
             <div
               key={i}
@@ -394,12 +557,12 @@ function App() {
           ))}
         </div>
 
-        {/* BARRA DE BÚSQUEDA Y FILTROS AVANZADOS */}
+        {/* filtros */}
         <div className="mb-10 flex flex-col lg:flex-row gap-4">
           <div className="relative flex-1">
             <input
               className={`w-full ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"} p-4 px-12 rounded-2xl outline-none shadow-sm text-sm`}
-              placeholder="Search..."
+              placeholder={t.search_placeholder}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -409,63 +572,89 @@ function App() {
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            <select
-              className={`${darkMode ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-500"} p-4 rounded-2xl text-xs font-bold outline-none shadow-sm min-w-32`}
-              value={filterPriority}
-              onChange={(e) => setFilterPriority(e.target.value)}
-            >
-              <option value="All">Priority: All</option>
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
-            </select>
-            <select
-              className={`${darkMode ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-500"} p-4 rounded-2xl text-xs font-bold outline-none shadow-sm min-w-32`}
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="All">Status: All</option>
-              <option value="Pending">Pending</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Completed">Completed</option>
-            </select>
-            <select
-              className={`${darkMode ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-500"} p-4 rounded-2xl text-xs font-bold outline-none shadow-sm min-w-32`}
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-            >
-              <option value="All">Tag: All</option>
-              <option value="General">General</option>
-              <option value="Work">Work</option>
-              <option value="Home">Home</option>
-              <option value="Urgent">Urgent</option>
-            </select>
+            {[
+              {
+                value: filterPriority,
+                setter: setFilterPriority,
+                options: [
+                  ["All", t.priority_all],
+                  ["High", t.priority_high],
+                  ["Medium", t.priority_medium],
+                  ["Low", t.priority_low],
+                ],
+              },
+              {
+                value: filterStatus,
+                setter: setFilterStatus,
+                options: [
+                  ["All", t.status_all],
+                  ["Pending", t.status_pending],
+                  ["In Progress", t.status_in_progress],
+                  ["Completed", t.status_completed],
+                ],
+              },
+              {
+                value: filterCategory,
+                setter: setFilterCategory,
+                options: [
+                  ["All", t.tag_all],
+                  ["General", t.tag_general],
+                  ["Work", t.tag_work],
+                  ["Home", t.tag_home],
+                  ["Urgent", t.tag_urgent],
+                ],
+              },
+            ].map((f, i) => (
+              <select
+                key={i}
+                className={`${darkMode ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-500"} p-4 rounded-2xl text-xs font-bold outline-none shadow-sm min-w-32`}
+                value={f.value}
+                onChange={(e) => f.setter(e.target.value)}
+              >
+                {f.options.map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            ))}
           </div>
         </div>
 
-        {/* FORMULARIO DE CREACIÓN */}
+        {/* formulario para añadir tareas */}
         <form
           onSubmit={handleSubmit}
           className={`${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"} p-8 rounded-[2.5rem] mb-12 shadow-xl border`}
         >
           <div className="grid grid-cols-1 gap-5">
-            <input
-              className={`${darkMode ? "bg-slate-800 text-white" : "bg-slate-50 text-slate-900"} border-none p-5 rounded-2xl outline-none text-xl font-bold placeholder:text-slate-400`}
-              placeholder="Task title..."
-              value={formData.title}
-              onChange={(e) =>
-                setFormData({ ...formData, title: e.target.value })
-              }
-            />
+            <div>
+              {/* borde rojo si intentas guardar sin título */}
+              <input
+                className={`w-full ${darkMode ? "bg-slate-800 text-white" : "bg-slate-50 text-slate-900"} border-none p-5 rounded-2xl outline-none text-xl font-bold placeholder:text-slate-400 ${titleError ? "ring-2 ring-red-400" : ""}`}
+                placeholder={t.form_title_placeholder}
+                value={formData.title}
+                onChange={(e) => {
+                  setFormData({ ...formData, title: e.target.value });
+                  if (titleError) setTitleError("");
+                }}
+              />
+              {titleError && (
+                <p className="text-red-500 text-xs font-bold mt-2 ml-1">
+                  {titleError}
+                </p>
+              )}
+            </div>
+
             <textarea
               className={`${darkMode ? "bg-slate-800 text-white" : "bg-slate-50 text-slate-900"} border-none p-5 rounded-2xl outline-none text-sm font-medium h-24 placeholder:text-slate-400 resize-none`}
-              placeholder="Task details..."
+              placeholder={t.form_desc_placeholder}
               value={formData.description}
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
             />
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+
+            <div className="grid grid-cols-3 gap-3">
               <select
                 className={`${darkMode ? "bg-slate-800" : "bg-slate-100"} p-4 rounded-2xl text-xs font-bold outline-none`}
                 value={formData.category}
@@ -473,50 +662,98 @@ function App() {
                   setFormData({ ...formData, category: e.target.value })
                 }
               >
-                <option value="General">🏷️ General</option>
-                <option value="Work">💼 Work</option>
-                <option value="Home">🏠 Home</option>
-                <option value="Urgent">🔥 Urgent</option>
+                <option value="General">🏷️ {t.tag_general}</option>
+                <option value="Work">💼 {t.tag_work}</option>
+                <option value="Home">🏠 {t.tag_home}</option>
+                <option value="Urgent">🔥 {t.tag_urgent}</option>
               </select>
               <select
-                className={`${darkMode ? "bg-slate-800" : "bg-slate-100"} p-4 rounded-2xl text-xs font-bold outline-none ${getPriorityClasses(formData.priority).text}`}
+                className={`${darkMode ? "bg-slate-800" : "bg-slate-100"} p-4 rounded-2xl text-xs font-bold outline-none ${getPriorityText(formData.priority)}`}
                 value={formData.priority}
                 onChange={(e) =>
                   setFormData({ ...formData, priority: e.target.value })
                 }
               >
-                <option value="High">High Priority</option>
-                <option value="Medium">Medium Priority</option>
-                <option value="Low">Low Priority</option>
+                <option value="High">{t.priority_high}</option>
+                <option value="Medium">{t.priority_medium}</option>
+                <option value="Low">{t.priority_low}</option>
               </select>
               <select
-                className={`${darkMode ? "bg-slate-800" : "bg-slate-100"} p-4 rounded-2xl text-xs font-bold outline-none ${getStatusClasses(formData.status).text}`}
+                className={`${darkMode ? "bg-slate-800" : "bg-slate-100"} p-4 rounded-2xl text-xs font-bold outline-none ${getStatusText(formData.status)}`}
                 value={formData.status}
                 onChange={(e) =>
                   setFormData({ ...formData, status: e.target.value })
                 }
               >
-                <option value="Pending">Pending</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Completed">Completed</option>
+                <option value="Pending">{t.status_pending}</option>
+                <option value="In Progress">{t.status_in_progress}</option>
+                <option value="Completed">{t.status_completed}</option>
               </select>
-              <input
-                type="date"
-                className={`${darkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"} p-4 rounded-2xl text-xs font-bold outline-none`}
-                value={formData.due_date}
-                onChange={(e) =>
-                  setFormData({ ...formData, due_date: e.target.value })
-                }
-              />
             </div>
+
+            {/* fecha y hora — la hora se bloquea si no hay fecha */}
+            <div className="flex justify-center gap-3">
+              <div
+                onClick={openFormDatePicker}
+                className={`${darkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"} p-4 rounded-2xl text-xs font-bold flex items-center gap-2 cursor-pointer`}
+              >
+                <Calendar size={14} className="shrink-0" />
+                <span className="shrink-0">{t.form_date}</span>
+                <input
+                  ref={formDateRef}
+                  type="date"
+                  className="bg-transparent outline-none text-xs font-bold pointer-events-none"
+                  value={formData.due_date}
+                  onChange={(e) =>
+                    setFormData({ ...formData, due_date: e.target.value })
+                  }
+                />
+              </div>
+
+              <div
+                onClick={openFormTimePicker}
+                title={!formData.due_date ? t.form_add_date_first : ""}
+                className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-2 transition-opacity ${
+                  formData.due_date
+                    ? `cursor-pointer ${darkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"}`
+                    : "cursor-not-allowed opacity-40 " +
+                      (darkMode
+                        ? "bg-slate-800 text-slate-500"
+                        : "bg-slate-100 text-slate-400")
+                }`}
+              >
+                <Clock size={14} className="shrink-0" />
+                <span className="shrink-0">{t.form_time}</span>
+                <input
+                  ref={formTimeRef}
+                  type="time"
+                  disabled={!formData.due_date}
+                  className="bg-transparent outline-none text-xs font-bold pointer-events-none disabled:cursor-not-allowed"
+                  value={formData.due_time}
+                  onChange={(e) =>
+                    setFormData({ ...formData, due_time: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
             <button className="bg-blue-600 hover:bg-blue-700 text-white p-5 rounded-2xl font-black text-sm transition-all shadow-lg flex items-center justify-center gap-3 active:scale-95">
-              <Plus size={20} /> ADD
+              <Plus size={20} /> {t.form_add_button}
             </button>
           </div>
         </form>
 
-        {/* PANTALLA VACÍA: se muestra cuando no hay tareas creadas todavía */}
-        {tasks.length === 0 && (
+        {/* skeletons mientras carga */}
+        {isLoading && (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <SkeletonCard key={i} darkMode={darkMode} />
+            ))}
+          </div>
+        )}
+
+        {/* sin tareas */}
+        {!isLoading && tasks.length === 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -526,212 +763,177 @@ function App() {
             <p
               className={`text-2xl font-black tracking-tight ${darkMode ? "text-slate-300" : "text-slate-700"}`}
             >
-              No tasks yet.
+              {t.empty_title}
             </p>
             <p
               className={`text-sm mt-2 font-medium ${darkMode ? "text-slate-500" : "text-slate-400"}`}
             >
-              Let's get productive! Add your first task above.
+              {t.empty_subtitle}
             </p>
           </motion.div>
         )}
 
-        {/* LISTADO INTERACTIVO CON DRAG & DROP */}
-        <Reorder.Group
-          axis="y"
-          values={tasks}
-          onReorder={setTasks}
-          className="space-y-4"
-        >
-          <AnimatePresence>
-            {filteredTasks.map((task) => {
-              const prio = getPriorityClasses(task.priority);
-              const stat = getStatusClasses(task.status);
-              const overdue = isOverdue(task);
+        {/* hay tareas pero los filtros no devuelven nada */}
+        {!isLoading && tasks.length > 0 && filteredTasks.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-20"
+          >
+            <p className="text-6xl mb-4">🔍</p>
+            <p
+              className={`text-2xl font-black tracking-tight ${darkMode ? "text-slate-300" : "text-slate-700"}`}
+            >
+              {t.empty_filters_title}
+            </p>
+            <p
+              className={`text-sm mt-2 mb-6 font-medium ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+            >
+              {t.empty_filters_subtitle}
+            </p>
+            <button
+              onClick={clearFilters}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-sm transition-all active:scale-95 shadow-lg"
+            >
+              {t.clear_filters}
+            </button>
+          </motion.div>
+        )}
 
-              // Compruebo si este campo concreto de esta tarea está en modo edición
-              const isEditingTitle =
-                editingField?.id === task.id && editingField?.field === "title";
-              const isEditingDesc =
-                editingField?.id === task.id &&
-                editingField?.field === "description";
+        {/* barra de ordenación y botón de borrar todo */}
+        {!isLoading && tasks.length > 0 && (
+          <div className="flex justify-between items-center mb-4">
+            <div
+              className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black ${darkMode ? "bg-slate-800 text-slate-300" : "bg-white text-slate-600"} shadow-sm`}
+            >
+              <ArrowUpDown size={14} />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-transparent outline-none text-xs font-black cursor-pointer"
+              >
+                <option value="default">{t.sort_default}</option>
+                <option value="date">{t.sort_date}</option>
+                <option value="priority">{t.sort_priority}</option>
+                <option value="status">{t.sort_status}</option>
+              </select>
+            </div>
 
-              // Compruebo si esta tarea está esperando confirmación de borrado
-              const isPendingDelete = confirmDeleteId === task.id;
+            <button
+              onClick={() => setShowClearAllModal(true)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${
+                darkMode
+                  ? "bg-slate-800 text-red-400 hover:bg-red-900/40"
+                  : "bg-red-50 text-red-500 hover:bg-red-100"
+              }`}
+            >
+              <Trash2 size={14} />
+              {t.clear_all}
+            </button>
+          </div>
+        )}
 
-              return (
-                <Reorder.Item
+        {/* lista de tareas con drag & drop */}
+        {!isLoading && (
+          <Reorder.Group
+            axis="y"
+            values={tasks}
+            onReorder={setTasks}
+            className="space-y-4"
+          >
+            <AnimatePresence>
+              {sortedTasks.map((task) => (
+                <TaskCard
                   key={task.id}
-                  value={task}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className={`${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"} border-l-[6px] ${prio.border} rounded-4xl p-6 shadow-sm border group cursor-grab active:cursor-grabbing`}
-                >
-                  <div className="flex items-center gap-5">
-                    <button
-                      onClick={() =>
-                        updateTask(
-                          task.id,
-                          "status",
-                          task.status === "Completed" ? "Pending" : "Completed",
-                        )
-                      }
-                      className={`transition-all transform hover:scale-110 ${task.status === "Completed" ? "text-emerald-500" : "text-slate-300"}`}
-                    >
-                      {task.status === "Completed" ? (
-                        <CheckCircle2 size={28} />
-                      ) : (
-                        <Circle size={28} />
-                      )}
-                    </button>
-
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        {/* TÍTULO: doble clic activa edición inline, Enter o blur guarda, Escape cancela */}
-                        {isEditingTitle ? (
-                          <input
-                            autoFocus
-                            className="text-lg font-bold tracking-tight bg-transparent border-b-2 border-blue-500 outline-none w-full"
-                            value={editingValue}
-                            onChange={(e) => setEditingValue(e.target.value)}
-                            onBlur={saveEditing}
-                            onKeyDown={cancelEditing}
-                          />
-                        ) : (
-                          <h3
-                            onDoubleClick={() => startEditing(task, "title")}
-                            title="Doble clic para editar"
-                            className={`text-lg font-bold tracking-tight cursor-text hover:opacity-70 transition-opacity ${task.status === "Completed" ? "line-through text-slate-500 opacity-60" : ""}`}
-                          >
-                            {task.title}
-                          </h3>
-                        )}
-
-                        <select
-                          value={task.priority}
-                          onChange={(e) =>
-                            updateTask(task.id, "priority", e.target.value)
-                          }
-                          className={`text-[9px] px-2.5 py-1 rounded-full font-black uppercase tracking-wider border-none outline-none cursor-pointer ${prio.bg} ${prio.text}`}
-                        >
-                          <option value="High">High</option>
-                          <option value="Medium">Medium</option>
-                          <option value="Low">Low</option>
-                        </select>
-                        <select
-                          value={task.status}
-                          onChange={(e) =>
-                            updateTask(task.id, "status", e.target.value)
-                          }
-                          className={`text-[9px] px-2.5 py-1 rounded-full font-black uppercase tracking-wider border-none outline-none cursor-pointer ${stat.bg} ${stat.text}`}
-                        >
-                          <option value="Pending">Pending</option>
-                          <option value="In Progress">In Progress</option>
-                          <option value="Completed">Completed</option>
-                        </select>
-                        <div
-                          className={`flex items-center gap-1 ${darkMode ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500"} px-2.5 py-1 rounded-full font-bold border ${darkMode ? "border-slate-700" : "border-slate-200"}`}
-                        >
-                          <Tag size={10} />
-                          <select
-                            value={task.category || "General"}
-                            onChange={(e) =>
-                              updateTask(task.id, "category", e.target.value)
-                            }
-                            className="text-[9px] bg-transparent border-none outline-none font-bold uppercase cursor-pointer"
-                          >
-                            <option value="General">General</option>
-                            <option value="Work">Work</option>
-                            <option value="Home">Home</option>
-                            <option value="Urgent">Urgent</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* DESCRIPCIÓN: doble clic activa edición inline, blur guarda, Escape cancela */}
-                      {isEditingDesc ? (
-                        <textarea
-                          autoFocus
-                          className={`text-sm bg-transparent border-b-2 border-blue-500 outline-none w-full resize-none mb-3 ${darkMode ? "text-slate-300" : "text-slate-600"}`}
-                          rows={2}
-                          value={editingValue}
-                          onChange={(e) => setEditingValue(e.target.value)}
-                          onBlur={saveEditing}
-                          onKeyDown={cancelEditing}
-                        />
-                      ) : (
-                        <p
-                          onDoubleClick={() =>
-                            startEditing(task, "description")
-                          }
-                          title="Doble clic para editar"
-                          className={`text-sm ${darkMode ? "text-slate-400" : "text-slate-500"} leading-relaxed mb-3 cursor-text hover:opacity-70 transition-opacity`}
-                        >
-                          {task.description || "No description provided."}
-                        </p>
-                      )}
-
-                      {/* CAMPO DE FECHA: se pone rojo y parpadea si la tarea está vencida y no completada */}
-                      <div
-                        className={`flex items-center gap-2 text-[10px] font-bold w-fit px-3 py-1 rounded-lg ${
-                          overdue
-                            ? "text-red-500 bg-red-50 animate-pulse"
-                            : darkMode
-                              ? "text-blue-400 bg-blue-900/30"
-                              : "text-blue-500 bg-blue-50"
-                        }`}
-                      >
-                        <Calendar size={12} />
-                        <span className="mr-1 uppercase tracking-tighter">
-                          {overdue ? "⚠ Overdue:" : "Deadline:"}
-                        </span>
-                        <input
-                          type="date"
-                          value={task.due_date || ""}
-                          onChange={(e) =>
-                            updateTask(task.id, "due_date", e.target.value)
-                          }
-                          className="bg-transparent border-none outline-none text-[10px] font-bold cursor-pointer"
-                        />
-                      </div>
-                    </div>
-
-                    {/* BOTÓN DE BORRADO: primer clic pide confirmación, segundo clic borra definitivamente */}
-                    <div className="flex flex-col items-center gap-1">
-                      {isPendingDelete ? (
-                        // Estado de confirmación: muestra dos botones para confirmar o cancelar
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => deleteTask(task.id)}
-                            className="px-2 py-1 rounded-xl bg-red-500 text-white text-[10px] font-black hover:bg-red-600 transition-all"
-                          >
-                            Delete
-                          </button>
-                          <button
-                            onClick={() => setConfirmDeleteId(null)}
-                            className={`px-2 py-1 rounded-xl text-[10px] font-black transition-all ${darkMode ? "bg-slate-700 text-slate-300 hover:bg-slate-600" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        // Estado normal: icono de papelera que activa la confirmación al hacer clic
-                        <button
-                          onClick={() => setConfirmDeleteId(task.id)}
-                          className="p-2 rounded-xl transition-all duration-300 opacity-20 group-hover:opacity-100 flex items-center justify-center hover:scale-125 hover:bg-red-500/20 text-slate-400 hover:text-red-600"
-                        >
-                          <Trash2 size={22} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </Reorder.Item>
-              );
-            })}
-          </AnimatePresence>
-        </Reorder.Group>
+                  task={task}
+                  darkMode={darkMode}
+                  lang={lang}
+                  updateTask={updateTask}
+                  deleteTask={deleteTask}
+                  confirmDeleteId={confirmDeleteId}
+                  setConfirmDeleteId={setConfirmDeleteId}
+                  editingField={editingField}
+                  editingValue={editingValue}
+                  setEditingField={setEditingField}
+                  setEditingValue={setEditingValue}
+                  saveEditing={saveEditing}
+                  cancelEditing={cancelEditing}
+                />
+              ))}
+            </AnimatePresence>
+          </Reorder.Group>
+        )}
       </div>
+
+      {/* modal de confirmación para borrar todo
+          clic fuera del recuadro lo cierra sin borrar nada */}
+      <AnimatePresence>
+        {showClearAllModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowClearAllModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.85, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              onClick={(e) => e.stopPropagation()}
+              className={`w-full max-w-sm mx-4 p-8 rounded-4xl shadow-2xl border ${
+                darkMode
+                  ? "bg-slate-900 border-slate-700"
+                  : "bg-white border-slate-100"
+              }`}
+            >
+              <p className="text-4xl mb-4 text-center">🗑️</p>
+              <h2 className="text-xl font-black text-center tracking-tight mb-2">
+                {t.modal_title}
+              </h2>
+              <p
+                className={`text-sm text-center mb-8 ${darkMode ? "text-slate-400" : "text-slate-500"}`}
+              >
+                {t.modal_body} {tasks.length}{" "}
+                {tasks.length === 1
+                  ? t.modal_body_singular
+                  : t.modal_body_plural}
+                {t.modal_body_end}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowClearAllModal(false)}
+                  className={`flex-1 py-3 rounded-2xl text-sm font-black transition-all active:scale-95 ${
+                    darkMode
+                      ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {t.modal_cancel}
+                </button>
+                <button
+                  onClick={clearAllTasks}
+                  className="flex-1 py-3 rounded-2xl text-sm font-black bg-red-500 text-white hover:bg-red-600 transition-all active:scale-95 shadow-lg"
+                >
+                  {t.modal_confirm}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* toast de confirmación */}
+      <AnimatePresence>
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

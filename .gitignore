@@ -1,4 +1,4 @@
-# --- ENTORNOS VIRTUALESgit rm -r --cached .
+# --- ENTORNOS VIRTUALES --
 env/
 venv/
 .venv/
