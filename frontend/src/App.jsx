@@ -768,14 +768,7 @@ function App() {
           </div>
         </form>
 
-        {/* ── BUSCADOR + FILTROS ─────────────────────────────────────────────────
-            van debajo del formulario en ambas versiones
-            pc: todo en una línea — buscador + filtros + sort + borrar todo
-            móvil: buscador solo, luego fila 1 (prioridad+estado), fila 2 (etiqueta+sort)
-            y borrar todo pegado a la lista de tareas
-            ───────────────────────────────────────────────────────────────────── */}
-
-        {/* pc: una sola línea con todo */}
+        {/* pc: buscador + filtros + sort + borrar todo en una línea */}
         <div className="hidden sm:flex items-center gap-3 mb-4">
           <div className="relative flex-1">
             <input
@@ -835,7 +828,6 @@ function App() {
               ))}
             </select>
           ))}
-          {/* sort */}
           <div
             className={`flex items-center gap-2 px-4 py-4 rounded-2xl text-xs font-black ${darkMode ? "bg-slate-900 text-slate-300" : "bg-white text-slate-600"} shadow-sm`}
           >
@@ -851,7 +843,6 @@ function App() {
               <option value="status">{t.sort_status}</option>
             </select>
           </div>
-          {/* borrar todo */}
           {tasks.length > 0 && (
             <button
               onClick={() => setShowClearAllModal(true)}
@@ -1042,6 +1033,13 @@ function App() {
           </Reorder.Group>
         )}
       </div>
+
+      {/* footer */}
+      <footer
+        className={`text-center text-xs mt-12 pb-4 ${darkMode ? "text-slate-600" : "text-slate-400"}`}
+      >
+        Made by <span className="font-bold">Carlos Padrón</span>
+      </footer>
 
       {/* modal de confirmación para borrar todo
           clic fuera del recuadro lo cierra sin borrar nada */}
