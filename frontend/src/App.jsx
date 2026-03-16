@@ -564,74 +564,10 @@ function App() {
           ))}
         </div>
 
-        {/* filtros */}
-        <div className="mb-10 flex flex-col lg:flex-row gap-4">
-          <div className="relative flex-1">
-            <input
-              className={`w-full ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"} p-4 px-12 rounded-2xl outline-none shadow-sm text-sm`}
-              placeholder={t.search_placeholder}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <Search
-              className="absolute left-4 top-4 text-slate-400"
-              size={20}
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {[
-              {
-                value: filterPriority,
-                setter: setFilterPriority,
-                options: [
-                  ["All", t.priority_all],
-                  ["High", t.priority_high],
-                  ["Medium", t.priority_medium],
-                  ["Low", t.priority_low],
-                ],
-              },
-              {
-                value: filterStatus,
-                setter: setFilterStatus,
-                options: [
-                  ["All", t.status_all],
-                  ["Pending", t.status_pending],
-                  ["In Progress", t.status_in_progress],
-                  ["Completed", t.status_completed],
-                ],
-              },
-              {
-                value: filterCategory,
-                setter: setFilterCategory,
-                options: [
-                  ["All", t.tag_all],
-                  ["General", t.tag_general],
-                  ["Work", t.tag_work],
-                  ["Home", t.tag_home],
-                  ["Urgent", t.tag_urgent],
-                ],
-              },
-            ].map((f, i) => (
-              <select
-                key={i}
-                className={`${darkMode ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-500"} p-4 rounded-2xl text-xs font-bold outline-none shadow-sm min-w-32`}
-                value={f.value}
-                onChange={(e) => f.setter(e.target.value)}
-              >
-                {f.options.map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            ))}
-          </div>
-        </div>
-
         {/* formulario para añadir tareas */}
         <form
           onSubmit={handleSubmit}
-          className={`${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"} p-8 rounded-[2.5rem] mb-12 shadow-xl border`}
+          className={`${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"} p-8 rounded-[2.5rem] mb-8 shadow-xl border`}
         >
           <div className="grid grid-cols-1 gap-5">
             <div>
@@ -701,7 +637,6 @@ function App() {
                 <option value="In Progress">{t.status_in_progress}</option>
                 <option value="Completed">{t.status_completed}</option>
               </select>
-
               <div
                 onClick={openFormDatePicker}
                 className={`${darkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"} p-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer`}
@@ -717,7 +652,6 @@ function App() {
                   }
                 />
               </div>
-
               {/* bloqueado si no hay fecha */}
               <div
                 onClick={openFormTimePicker}
@@ -834,6 +768,175 @@ function App() {
           </div>
         </form>
 
+        {/* ── BUSCADOR + FILTROS ─────────────────────────────────────────────────
+            van debajo del formulario en ambas versiones
+            pc: todo en una línea — buscador + filtros + sort + borrar todo
+            móvil: buscador solo, luego fila 1 (prioridad+estado), fila 2 (etiqueta+sort)
+            y borrar todo pegado a la lista de tareas
+            ───────────────────────────────────────────────────────────────────── */}
+
+        {/* pc: una sola línea con todo */}
+        <div className="hidden sm:flex items-center gap-3 mb-4">
+          <div className="relative flex-1">
+            <input
+              className={`w-full ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"} p-4 px-12 rounded-2xl outline-none shadow-sm text-sm`}
+              placeholder={t.search_placeholder}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <Search
+              className="absolute left-4 top-4 text-slate-400"
+              size={20}
+            />
+          </div>
+          {[
+            {
+              value: filterPriority,
+              setter: setFilterPriority,
+              options: [
+                ["All", t.priority_all],
+                ["High", t.priority_high],
+                ["Medium", t.priority_medium],
+                ["Low", t.priority_low],
+              ],
+            },
+            {
+              value: filterStatus,
+              setter: setFilterStatus,
+              options: [
+                ["All", t.status_all],
+                ["Pending", t.status_pending],
+                ["In Progress", t.status_in_progress],
+                ["Completed", t.status_completed],
+              ],
+            },
+            {
+              value: filterCategory,
+              setter: setFilterCategory,
+              options: [
+                ["All", t.tag_all],
+                ["General", t.tag_general],
+                ["Work", t.tag_work],
+                ["Home", t.tag_home],
+                ["Urgent", t.tag_urgent],
+              ],
+            },
+          ].map((f, i) => (
+            <select
+              key={i}
+              className={`${darkMode ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-500"} p-4 rounded-2xl text-xs font-bold outline-none shadow-sm`}
+              value={f.value}
+              onChange={(e) => f.setter(e.target.value)}
+            >
+              {f.options.map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          ))}
+          {/* sort */}
+          <div
+            className={`flex items-center gap-2 px-4 py-4 rounded-2xl text-xs font-black ${darkMode ? "bg-slate-900 text-slate-300" : "bg-white text-slate-600"} shadow-sm`}
+          >
+            <ArrowUpDown size={14} />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-transparent outline-none text-xs font-black cursor-pointer"
+            >
+              <option value="default">{t.sort_default}</option>
+              <option value="date">{t.sort_date}</option>
+              <option value="priority">{t.sort_priority}</option>
+              <option value="status">{t.sort_status}</option>
+            </select>
+          </div>
+          {/* borrar todo */}
+          {tasks.length > 0 && (
+            <button
+              onClick={() => setShowClearAllModal(true)}
+              className={`flex items-center gap-2 px-4 py-4 rounded-2xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all hover:scale-105 active:scale-95 ${
+                darkMode
+                  ? "bg-slate-800 text-red-400 hover:bg-red-900/40"
+                  : "bg-red-50 text-red-500 hover:bg-red-100"
+              }`}
+            >
+              <Trash2 size={14} />
+              {t.clear_all}
+            </button>
+          )}
+        </div>
+
+        {/* móvil: buscador solo */}
+        <div className="sm:hidden mb-3">
+          <div className="relative">
+            <input
+              className={`w-full ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"} p-4 px-12 rounded-2xl outline-none shadow-sm text-sm`}
+              placeholder={t.search_placeholder}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <Search
+              className="absolute left-4 top-4 text-slate-400"
+              size={20}
+            />
+          </div>
+        </div>
+
+        {/* móvil: fila 1 → prioridad + estado */}
+        <div className="sm:hidden flex gap-2 mb-3">
+          <select
+            className={`flex-1 ${darkMode ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-500"} p-4 rounded-2xl text-xs font-bold outline-none shadow-sm`}
+            value={filterPriority}
+            onChange={(e) => setFilterPriority(e.target.value)}
+          >
+            <option value="All">{t.priority_all}</option>
+            <option value="High">{t.priority_high}</option>
+            <option value="Medium">{t.priority_medium}</option>
+            <option value="Low">{t.priority_low}</option>
+          </select>
+          <select
+            className={`flex-1 ${darkMode ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-500"} p-4 rounded-2xl text-xs font-bold outline-none shadow-sm`}
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+          >
+            <option value="All">{t.status_all}</option>
+            <option value="Pending">{t.status_pending}</option>
+            <option value="In Progress">{t.status_in_progress}</option>
+            <option value="Completed">{t.status_completed}</option>
+          </select>
+        </div>
+
+        {/* móvil: fila 2 → etiqueta + sort */}
+        <div className="sm:hidden flex gap-2 mb-8">
+          <select
+            className={`flex-1 ${darkMode ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-500"} p-4 rounded-2xl text-xs font-bold outline-none shadow-sm`}
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+          >
+            <option value="All">{t.tag_all}</option>
+            <option value="General">{t.tag_general}</option>
+            <option value="Work">{t.tag_work}</option>
+            <option value="Home">{t.tag_home}</option>
+            <option value="Urgent">{t.tag_urgent}</option>
+          </select>
+          <div
+            className={`flex items-center gap-2 px-4 rounded-2xl text-xs font-black ${darkMode ? "bg-slate-900 text-slate-300" : "bg-white text-slate-600"} shadow-sm`}
+          >
+            <ArrowUpDown size={14} />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-transparent outline-none text-xs font-black cursor-pointer"
+            >
+              <option value="default">{t.sort_default}</option>
+              <option value="date">{t.sort_date}</option>
+              <option value="priority">{t.sort_priority}</option>
+              <option value="status">{t.sort_status}</option>
+            </select>
+          </div>
+        </div>
+
         {/* skeletons mientras carga */}
         {isLoading && (
           <div className="space-y-4">
@@ -891,27 +994,12 @@ function App() {
           </motion.div>
         )}
 
-        {/* barra de ordenación y botón de borrar todo */}
+        {/* borrar todo en móvil — justo encima de la lista */}
         {!isLoading && tasks.length > 0 && (
-          <div className="flex justify-between items-center mb-4">
-            <div
-              className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black ${darkMode ? "bg-slate-800 text-slate-300" : "bg-white text-slate-600"} shadow-sm`}
-            >
-              <ArrowUpDown size={14} />
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="bg-transparent outline-none text-xs font-black cursor-pointer"
-              >
-                <option value="default">{t.sort_default}</option>
-                <option value="date">{t.sort_date}</option>
-                <option value="priority">{t.sort_priority}</option>
-                <option value="status">{t.sort_status}</option>
-              </select>
-            </div>
+          <div className="sm:hidden flex justify-end mb-4">
             <button
               onClick={() => setShowClearAllModal(true)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all hover:scale-105 active:scale-95 ${
                 darkMode
                   ? "bg-slate-800 text-red-400 hover:bg-red-900/40"
                   : "bg-red-50 text-red-500 hover:bg-red-100"
