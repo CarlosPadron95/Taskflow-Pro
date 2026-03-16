@@ -1,5 +1,5 @@
-import { useRef } from "react";
-import { Reorder } from "framer-motion";
+import { useRef, useState, useEffect } from "react";
+import { Reorder, useDragControls } from "framer-motion";
 import {
   Trash2,
   CheckCircle2,
@@ -7,6 +7,7 @@ import {
   Tag,
   Calendar,
   Clock,
+  GripVertical,
 } from "lucide-react";
 import translations from "../i18n";
 
@@ -88,6 +89,18 @@ export default function TaskCard({
     editingField?.id === task.id && editingField?.field === "description";
   const isPendingDelete = confirmDeleteId === task.id;
 
+  // en móvil el drag solo se activa desde el handle para no interferir con el scroll
+  // en pc se puede arrastrar desde cualquier parte de la tarjeta como antes
+  const dragControls = useDragControls();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   // refs para abrir el datepicker al hacer clic en cualquier parte del recuadro
   const dateInputRef = useRef(null);
   const timeInputRef = useRef(null);
@@ -118,12 +131,23 @@ export default function TaskCard({
     <Reorder.Item
       key={task.id}
       value={task}
+      dragControls={dragControls}
+      dragListener={!isMobile}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      className={`${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"} border-l-[6px] ${prio.border} rounded-4xl p-6 shadow-sm border group cursor-grab active:cursor-grabbing`}
+      className={`${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"} border-l-[6px] ${prio.border} rounded-4xl p-6 shadow-sm border group ${!isMobile ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
-      <div className="flex items-start gap-5">
+      <div className="flex items-start gap-3">
+        {/* handle de arrastre — solo visible en móvil (sm:hidden lo oculta en pc)
+            onPointerDown inicia el drag al pulsar sobre este icono */}
+        <div
+          onPointerDown={(e) => dragControls.start(e)}
+          className={`mt-1 shrink-0 cursor-grab active:cursor-grabbing touch-none p-1 rounded-lg opacity-30 group-hover:opacity-70 transition-opacity sm:hidden ${darkMode ? "text-slate-400" : "text-slate-400"}`}
+        >
+          <GripVertical size={18} />
+        </div>
+
         {/* checkbox — marca como completada o la vuelve a pending */}
         <button
           onClick={() =>
@@ -296,8 +320,7 @@ export default function TaskCard({
           </div>
         </div>
 
-        {/* en escritorio la papelera va a la derecha dentro de la tarjeta
-            en móvil se oculta aquí y aparece abajo al confirmar */}
+        {/* la papelera se oculta cuando se está esperando confirmación */}
         {!isPendingDelete && (
           <button
             onClick={() => setConfirmDeleteId(task.id)}
@@ -308,8 +331,8 @@ export default function TaskCard({
         )}
       </div>
 
-      {/* en escritorio los botones van inline a la derecha del contenido
-          en móvil se muestran abajo para que no se salgan de la pantalla */}
+      {/* botones de confirmación fuera del flex principal para que en móvil
+          no se salgan de la pantalla */}
       {isPendingDelete && (
         <div className="flex gap-2 mt-4 w-full sm:mt-0 sm:w-auto sm:absolute sm:right-6 sm:top-1/2 sm:-translate-y-1/2">
           <button
