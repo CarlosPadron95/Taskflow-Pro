@@ -249,7 +249,8 @@ export default function TaskCard({
             </p>
           )}
 
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* fecha y hora en columna en móvil para evitar que se salgan de la tarjeta */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             {/* el input tiene pointer-events-none para que el clic lo gestione el div */}
             <div
               onClick={openDatePicker}
@@ -276,11 +277,12 @@ export default function TaskCard({
               />
             </div>
 
-            {/* la hora se deshabilita si no hay fecha */}
+            {/* la hora se deshabilita si no hay fecha
+                max-w-full evita que se salga de la tarjeta en móvil cuando hay overdue */}
             <div
               onClick={openTimePicker}
               title={!task.due_date ? t.form_add_date_first : ""}
-              className={`flex items-center gap-2 text-[10px] font-bold w-fit px-3 py-1 rounded-lg transition-opacity ${
+              className={`flex items-center gap-2 text-[10px] font-bold w-fit max-w-full px-3 py-1 rounded-lg transition-opacity ${
                 !task.due_date
                   ? "opacity-40 cursor-not-allowed"
                   : timeOverdue
@@ -290,8 +292,8 @@ export default function TaskCard({
                       : "text-purple-500 bg-purple-50 cursor-pointer"
               }`}
             >
-              <Clock size={12} />
-              <span className="uppercase tracking-tighter">
+              <Clock size={12} className="shrink-0" />
+              <span className="uppercase tracking-tighter shrink-0">
                 {timeOverdue ? t.card_overdue_time : t.card_time}
               </span>
               <input
@@ -302,7 +304,7 @@ export default function TaskCard({
                 onChange={(e) =>
                   updateTask(task.id, "due_time", e.target.value)
                 }
-                className="bg-transparent border-none outline-none text-[10px] font-bold pointer-events-none disabled:cursor-not-allowed"
+                className="bg-transparent border-none outline-none text-[10px] font-bold pointer-events-none disabled:cursor-not-allowed min-w-0"
               />
               {/* botón para borrar la hora, stopPropagation para que no abra el picker */}
               {task.due_time && (
@@ -311,7 +313,7 @@ export default function TaskCard({
                     e.stopPropagation();
                     updateTask(task.id, "due_time", "");
                   }}
-                  className="ml-1 hover:text-red-500 transition-colors font-black leading-none"
+                  className="ml-1 shrink-0 hover:text-red-500 transition-colors font-black leading-none"
                 >
                   ✕
                 </button>
