@@ -129,6 +129,8 @@ export default function TaskCard({
   };
 
   return (
+    // relative necesario para que el indicador overdue de móvil se pueda posicionar
+    // de forma absoluta sin afectar al resto del contenido
     <Reorder.Item
       key={task.id}
       value={task}
@@ -137,8 +139,22 @@ export default function TaskCard({
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      className={`${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"} border-l-[6px] ${prio.border} rounded-4xl p-6 shadow-sm border group ${!isMobile ? "cursor-grab active:cursor-grabbing" : ""}`}
+      className={`relative ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"} border-l-[6px] ${prio.border} rounded-4xl p-6 shadow-sm border group ${!isMobile ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
+      {/* overdue en móvil — posición absoluta sobre el espacio del borde izquierdo
+          no empuja ni afecta al contenido de la tarjeta */}
+      {isOverdue && (
+        <div className="sm:hidden absolute left-0 top-0 bottom-0 w-8 flex flex-col items-center justify-center gap-0.5 text-red-500">
+          <AlertTriangle size={13} />
+          <span
+            className="text-[7px] font-black uppercase tracking-tight"
+            style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+          >
+            {t.card_overdue}
+          </span>
+        </div>
+      )}
+
       <div className="flex items-start gap-3">
         {/* handle de arrastre — solo visible en móvil, sm:hidden lo oculta en pc */}
         <div
@@ -147,17 +163,6 @@ export default function TaskCard({
         >
           <GripVertical size={18} />
         </div>
-
-        {/* indicador overdue en móvil — icono + texto en vertical, solo visible en móvil
-            se muestra a la izquierda de la tarjeta cuando la tarea está vencida */}
-        {isOverdue && (
-          <div className="sm:hidden shrink-0 flex flex-col items-center gap-0.5 text-red-500 mt-1">
-            <AlertTriangle size={16} />
-            <span className="text-[8px] font-black uppercase tracking-tight">
-              {t.card_overdue}
-            </span>
-          </div>
-        )}
 
         {/* checkbox — marca como completada o la vuelve a pending */}
         <button
@@ -287,7 +292,8 @@ export default function TaskCard({
               />
             </div>
 
-            {/* la hora se deshabilita si no hay fecha */}
+            {/* la hora se deshabilita si no hay fecha
+                min-w-[45px] para que la hora siempre se vea completa (ej: 21:00) */}
             <div
               onClick={openTimePicker}
               title={!task.due_date ? t.form_add_date_first : ""}
@@ -303,7 +309,6 @@ export default function TaskCard({
               <span className="uppercase tracking-tighter shrink-0">
                 {t.card_time}
               </span>
-              {/* min-w-[45px] para que la hora siempre se vea completa (ej: 21:00) */}
               <input
                 ref={timeInputRef}
                 type="time"
@@ -312,7 +317,7 @@ export default function TaskCard({
                 onChange={(e) =>
                   updateTask(task.id, "due_time", e.target.value)
                 }
-                className="bg-transparent border-none outline-none text-[10px] font-bold pointer-events-none disabled:cursor-not-allowed min-w-[45px]"
+                className="bg-transparent border-none outline-none text-[10px] font-bold pointer-events-none disabled:cursor-not-allowed min-w-11.25"
               />
               {/* botón para borrar la hora, stopPropagation para que no abra el picker */}
               {task.due_time && (
@@ -328,8 +333,7 @@ export default function TaskCard({
               )}
             </div>
 
-            {/* indicador overdue en pc — icono + texto en horizontal, solo visible en pc
-                aparece a la derecha del campo de hora cuando la tarea está vencida */}
+            {/* overdue en pc — icono + texto en horizontal a la derecha del campo hora */}
             {isOverdue && (
               <div className="hidden sm:flex items-center gap-1 text-red-500">
                 <AlertTriangle size={14} />
