@@ -139,8 +139,7 @@ export default function TaskCard({
       className={`${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"} border-l-[6px] ${prio.border} rounded-4xl p-6 shadow-sm border group ${!isMobile ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
       <div className="flex items-start gap-3">
-        {/* handle de arrastre — solo visible en móvil (sm:hidden lo oculta en pc)
-            onPointerDown inicia el drag al pulsar sobre este icono */}
+        {/* handle de arrastre — solo visible en móvil, sm:hidden lo oculta en pc */}
         <div
           onPointerDown={(e) => dragControls.start(e)}
           className={`mt-1 shrink-0 cursor-grab active:cursor-grabbing touch-none p-1 rounded-lg opacity-30 group-hover:opacity-70 transition-opacity sm:hidden ${darkMode ? "text-slate-400" : "text-slate-400"}`}
@@ -249,7 +248,8 @@ export default function TaskCard({
             </p>
           )}
 
-          {/* fecha y hora en columna en móvil para evitar que se salgan de la tarjeta */}
+          {/* en móvil van en columna para que no se salgan de la tarjeta
+              en pc van en fila como siempre */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             {/* el input tiene pointer-events-none para que el clic lo gestione el div */}
             <div
@@ -277,8 +277,8 @@ export default function TaskCard({
               />
             </div>
 
-            {/* la hora se deshabilita si no hay fecha
-                max-w-full evita que se salga de la tarjeta en móvil cuando hay overdue */}
+            {/* max-w-full evita que se salga de la tarjeta en móvil
+                min-w-[45px] garantiza que la hora siempre se vea completa (ej: 21:00) */}
             <div
               onClick={openTimePicker}
               title={!task.due_date ? t.form_add_date_first : ""}
@@ -304,7 +304,7 @@ export default function TaskCard({
                 onChange={(e) =>
                   updateTask(task.id, "due_time", e.target.value)
                 }
-                className="bg-transparent border-none outline-none text-[10px] font-bold pointer-events-none disabled:cursor-not-allowed min-w-0"
+                className="bg-transparent border-none outline-none text-[10px] font-bold pointer-events-none disabled:cursor-not-allowed min-w-11.25"
               />
               {/* botón para borrar la hora, stopPropagation para que no abra el picker */}
               {task.due_time && (
