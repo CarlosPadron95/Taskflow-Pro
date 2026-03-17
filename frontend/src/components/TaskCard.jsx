@@ -8,6 +8,7 @@ import {
   Calendar,
   Clock,
   GripVertical,
+  AlertTriangle,
 } from "lucide-react";
 import translations from "../i18n";
 
@@ -50,17 +51,17 @@ const getStatusClasses = (s) => {
 // si tiene hora, mira fecha+hora exacta / si no, cuenta hasta el final del día
 const getOverdueState = (task) => {
   if (!task.due_date || task.status === "Completed") {
-    return { dateOverdue: false, timeOverdue: false };
+    return { isOverdue: false };
   }
   const now = new Date();
   const [year, month, day] = task.due_date.split("-").map(Number);
   if (task.due_time) {
     const [hours, minutes] = task.due_time.split(":").map(Number);
     const deadline = new Date(year, month - 1, day, hours, minutes);
-    return { dateOverdue: false, timeOverdue: deadline < now };
+    return { isOverdue: deadline < now };
   } else {
     const deadlineDay = new Date(year, month - 1, day, 23, 59, 59, 999);
-    return { dateOverdue: deadlineDay < now, timeOverdue: false };
+    return { isOverdue: deadlineDay < now };
   }
 };
 
@@ -82,7 +83,7 @@ export default function TaskCard({
   const t = translations[lang];
   const prio = getPriorityClasses(task.priority);
   const stat = getStatusClasses(task.status);
-  const { dateOverdue, timeOverdue } = getOverdueState(task);
+  const { isOverdue } = getOverdueState(task);
   const isEditingTitle =
     editingField?.id === task.id && editingField?.field === "title";
   const isEditingDesc =
@@ -146,6 +147,17 @@ export default function TaskCard({
         >
           <GripVertical size={18} />
         </div>
+
+        {/* indicador overdue en móvil — icono + texto en vertical, solo visible en móvil
+            se muestra a la izquierda de la tarjeta cuando la tarea está vencida */}
+        {isOverdue && (
+          <div className="sm:hidden shrink-0 flex flex-col items-center gap-0.5 text-red-500 mt-1">
+            <AlertTriangle size={16} />
+            <span className="text-[8px] font-black uppercase tracking-tight">
+              {t.card_overdue}
+            </span>
+          </div>
+        )}
 
         {/* checkbox — marca como completada o la vuelve a pending */}
         <button
@@ -249,22 +261,20 @@ export default function TaskCard({
           )}
 
           {/* en móvil van en columna para que no se salgan de la tarjeta
-              en pc van en fila como siempre */}
+              en pc van en fila con el indicador overdue al final */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             {/* el input tiene pointer-events-none para que el clic lo gestione el div */}
             <div
               onClick={openDatePicker}
               className={`flex items-center gap-2 text-[10px] font-bold w-fit px-3 py-1 rounded-lg cursor-pointer ${
-                dateOverdue
-                  ? "text-red-500 bg-red-50 animate-pulse"
-                  : darkMode
-                    ? "text-blue-400 bg-blue-900/30"
-                    : "text-blue-500 bg-blue-50"
+                darkMode
+                  ? "text-blue-400 bg-blue-900/30"
+                  : "text-blue-500 bg-blue-50"
               }`}
             >
               <Calendar size={12} />
               <span className="uppercase tracking-tighter">
-                {dateOverdue ? t.card_overdue_date : t.card_deadline}
+                {t.card_deadline}
               </span>
               <input
                 ref={dateInputRef}
@@ -277,25 +287,23 @@ export default function TaskCard({
               />
             </div>
 
-            {/* max-w-full evita que se salga de la tarjeta en móvil
-                min-w-[45px] garantiza que la hora siempre se vea completa (ej: 21:00) */}
+            {/* la hora se deshabilita si no hay fecha */}
             <div
               onClick={openTimePicker}
               title={!task.due_date ? t.form_add_date_first : ""}
-              className={`flex items-center gap-2 text-[10px] font-bold w-fit max-w-full px-3 py-1 rounded-lg transition-opacity ${
+              className={`flex items-center gap-2 text-[10px] font-bold w-fit px-3 py-1 rounded-lg transition-opacity ${
                 !task.due_date
                   ? "opacity-40 cursor-not-allowed"
-                  : timeOverdue
-                    ? "text-red-500 bg-red-50 animate-pulse cursor-pointer"
-                    : darkMode
-                      ? "text-purple-400 bg-purple-900/30 cursor-pointer"
-                      : "text-purple-500 bg-purple-50 cursor-pointer"
+                  : darkMode
+                    ? "text-purple-400 bg-purple-900/30 cursor-pointer"
+                    : "text-purple-500 bg-purple-50 cursor-pointer"
               }`}
             >
               <Clock size={12} className="shrink-0" />
               <span className="uppercase tracking-tighter shrink-0">
-                {timeOverdue ? t.card_overdue_time : t.card_time}
+                {t.card_time}
               </span>
+              {/* min-w-[45px] para que la hora siempre se vea completa (ej: 21:00) */}
               <input
                 ref={timeInputRef}
                 type="time"
@@ -304,7 +312,7 @@ export default function TaskCard({
                 onChange={(e) =>
                   updateTask(task.id, "due_time", e.target.value)
                 }
-                className="bg-transparent border-none outline-none text-[10px] font-bold pointer-events-none disabled:cursor-not-allowed min-w-11.25"
+                className="bg-transparent border-none outline-none text-[10px] font-bold pointer-events-none disabled:cursor-not-allowed min-w-[45px]"
               />
               {/* botón para borrar la hora, stopPropagation para que no abra el picker */}
               {task.due_time && (
@@ -319,6 +327,17 @@ export default function TaskCard({
                 </button>
               )}
             </div>
+
+            {/* indicador overdue en pc — icono + texto en horizontal, solo visible en pc
+                aparece a la derecha del campo de hora cuando la tarea está vencida */}
+            {isOverdue && (
+              <div className="hidden sm:flex items-center gap-1 text-red-500">
+                <AlertTriangle size={14} />
+                <span className="text-[10px] font-black uppercase tracking-tight">
+                  {t.card_overdue}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

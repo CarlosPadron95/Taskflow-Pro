@@ -72,9 +72,8 @@ const translations = {
 
     // TARJETAS
     card_deadline: "Vence:",
-    card_overdue_date: "⚠ Vencida:",
     card_time: "Hora:",
-    card_overdue_time: "⚠ Vencida:",
+    card_overdue: "Vencida",
     card_delete: "Eliminar",
     card_cancel: "Cancelar",
     card_no_description: "Sin descripción.",
@@ -184,9 +183,8 @@ const translations = {
 
     // TARJETAS
     card_deadline: "Deadline:",
-    card_overdue_date: "⚠ Overdue:",
     card_time: "Time:",
-    card_overdue_time: "⚠ Overdue:",
+    card_overdue: "Overdue",
     card_delete: "Delete",
     card_cancel: "Cancel",
     card_no_description: "No description provided.",
