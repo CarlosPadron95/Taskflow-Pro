@@ -1,6 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
-import { Globe } from "lucide-react";
+import { Globe, Eye, EyeOff } from "lucide-react";
 import translations from "../i18n";
 
 const BASE_URL =
@@ -12,6 +12,8 @@ export default function Login({ onLogin, goToRegister, lang, toggleLang }) {
   const [formData, setFormData] = useState({ username: "", password: "" });
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
+  // controla si la contraseña se ve o se oculta
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -63,15 +65,26 @@ export default function Login({ onLogin, goToRegister, lang, toggleLang }) {
               setFormData({ ...formData, username: e.target.value })
             }
           />
-          <input
-            type="password"
-            className="w-full bg-slate-50 p-4 rounded-2xl outline-none text-sm font-medium"
-            placeholder={t.login_password}
-            value={formData.password}
-            onChange={(e) =>
-              setFormData({ ...formData, password: e.target.value })
-            }
-          />
+
+          {/* campo contraseña con botón de ojo para mostrar/ocultar */}
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              className="w-full bg-slate-50 p-4 pr-12 rounded-2xl outline-none text-sm font-medium"
+              placeholder={t.login_password}
+              value={formData.password}
+              onChange={(e) =>
+                setFormData({ ...formData, password: e.target.value })
+              }
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
 
           {/* checkbox personalizado porque el nativo es muy feo */}
           <label className="flex items-center gap-3 cursor-pointer select-none">
