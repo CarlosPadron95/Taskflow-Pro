@@ -129,8 +129,7 @@ export default function TaskCard({
   };
 
   return (
-    // relative necesario para que el indicador overdue de móvil se pueda posicionar
-    // de forma absoluta sin afectar al resto del contenido
+    // relative necesario para posicionar el indicador overdue de móvil de forma absoluta
     <Reorder.Item
       key={task.id}
       value={task}
@@ -141,15 +140,13 @@ export default function TaskCard({
       exit={{ opacity: 0, scale: 0.9 }}
       className={`relative ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"} border-l-[6px] ${prio.border} rounded-4xl p-6 shadow-sm border group ${!isMobile ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
-      {/* overdue en móvil — posición absoluta sobre el espacio del borde izquierdo
-          no empuja ni afecta al contenido de la tarjeta */}
+      {/* overdue en móvil — posición absoluta centrada en el espacio del borde izquierdo
+          icono arriba, texto debajo con letras rectas, parpadea para llamar la atención
+          no afecta al posicionamiento del resto de la tarjeta */}
       {isOverdue && (
-        <div className="sm:hidden absolute left-0 top-0 bottom-0 w-8 flex flex-col items-center justify-center gap-0.5 text-red-500">
+        <div className="sm:hidden absolute left-0 top-0 bottom-0 w-8 flex flex-col items-center justify-center gap-1 text-red-500 animate-pulse">
           <AlertTriangle size={13} />
-          <span
-            className="text-[7px] font-black uppercase tracking-tight"
-            style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
-          >
+          <span className="text-[7px] font-black uppercase leading-none text-center">
             {t.card_overdue}
           </span>
         </div>
@@ -333,9 +330,9 @@ export default function TaskCard({
               )}
             </div>
 
-            {/* overdue en pc — icono + texto en horizontal a la derecha del campo hora */}
+            {/* overdue en pc — icono + texto en horizontal a la derecha del campo hora, parpadea */}
             {isOverdue && (
-              <div className="hidden sm:flex items-center gap-1 text-red-500">
+              <div className="hidden sm:flex items-center gap-1 text-red-500 animate-pulse">
                 <AlertTriangle size={14} />
                 <span className="text-[10px] font-black uppercase tracking-tight">
                   {t.card_overdue}
