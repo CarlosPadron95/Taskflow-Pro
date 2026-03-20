@@ -32,7 +32,7 @@ export default function Login({ onLogin, goToRegister, lang, toggleLang }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
       <div className="bg-white rounded-3xl shadow-xl p-10 w-full max-w-md">
         {/* logo y botón de idioma en la misma fila */}
         <div className="flex justify-between items-start mb-2">
@@ -77,6 +77,7 @@ export default function Login({ onLogin, goToRegister, lang, toggleLang }) {
                 setFormData({ ...formData, password: e.target.value })
               }
             />
+            {/* type="button" para que no envíe el formulario al pulsarlo */}
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
@@ -135,6 +136,11 @@ export default function Login({ onLogin, goToRegister, lang, toggleLang }) {
           </button>
         </p>
       </div>
+
+      {/* footer */}
+      <footer className="text-center text-xs mt-6 pb-4 text-slate-400">
+        Made by <span className="font-bold">Carlos Padrón</span>
+      </footer>
     </div>
   );
 }

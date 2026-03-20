@@ -1,6 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
-import { Globe } from "lucide-react";
+import { Globe, Eye, EyeOff } from "lucide-react";
 import translations from "../i18n";
 
 const BASE_URL =
@@ -17,6 +17,9 @@ export default function Register({ onRegister, goToLogin, lang, toggleLang }) {
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  // controla si las contraseñas se ven o se ocultan
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -57,7 +60,7 @@ export default function Register({ onRegister, goToLogin, lang, toggleLang }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
       <div className="bg-white rounded-3xl shadow-xl p-10 w-full max-w-md">
         {/* logo y botón de idioma en la misma fila */}
         <div className="flex justify-between items-start mb-2">
@@ -107,28 +110,49 @@ export default function Register({ onRegister, goToLogin, lang, toggleLang }) {
               setFormData({ ...formData, email: e.target.value })
             }
           />
-          {/* new-password para que el navegador no autocomplete con credenciales guardadas */}
-          <input
-            type="password"
-            autoComplete="new-password"
-            className="w-full bg-slate-50 p-4 rounded-2xl outline-none text-sm font-medium"
-            placeholder={t.register_password}
-            value={formData.password}
-            onChange={(e) =>
-              setFormData({ ...formData, password: e.target.value })
-            }
-          />
-          {/* este campo solo es para confirmar, no se manda al backend */}
-          <input
-            type="password"
-            autoComplete="new-password"
-            className="w-full bg-slate-50 p-4 rounded-2xl outline-none text-sm font-medium"
-            placeholder={t.register_confirm_password}
-            value={formData.confirmPassword}
-            onChange={(e) =>
-              setFormData({ ...formData, confirmPassword: e.target.value })
-            }
-          />
+
+          {/* campo contraseña con botón de ojo */}
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              className="w-full bg-slate-50 p-4 pr-12 rounded-2xl outline-none text-sm font-medium"
+              placeholder={t.register_password}
+              value={formData.password}
+              onChange={(e) =>
+                setFormData({ ...formData, password: e.target.value })
+              }
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+
+          {/* campo confirmar contraseña con botón de ojo — no se manda al backend */}
+          <div className="relative">
+            <input
+              type={showConfirm ? "text" : "password"}
+              autoComplete="new-password"
+              className="w-full bg-slate-50 p-4 pr-12 rounded-2xl outline-none text-sm font-medium"
+              placeholder={t.register_confirm_password}
+              value={formData.confirmPassword}
+              onChange={(e) =>
+                setFormData({ ...formData, confirmPassword: e.target.value })
+              }
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirm(!showConfirm)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+
           <button
             onClick={handleSubmit}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-2xl font-black text-sm transition-all shadow-lg active:scale-95"
@@ -147,6 +171,11 @@ export default function Register({ onRegister, goToLogin, lang, toggleLang }) {
           </button>
         </p>
       </div>
+
+      {/* footer */}
+      <footer className="text-center text-xs mt-6 pb-4 text-slate-400">
+        Made by <span className="font-bold">Carlos Padrón</span>
+      </footer>
     </div>
   );
 }
