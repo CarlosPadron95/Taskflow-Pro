@@ -65,6 +65,14 @@ const getOverdueState = (task) => {
   }
 };
 
+// convierte YYYY-MM-DD a DD-MM-YYYY para mostrar en pantalla
+// el input sigue guardando YYYY-MM-DD internamente porque es lo que necesita el backend
+const formatDate = (dateStr) => {
+  if (!dateStr) return "";
+  const [year, month, day] = dateStr.split("-");
+  return `${day}-${month}-${year}`;
+};
+
 export default function TaskCard({
   task,
   darkMode,
@@ -244,7 +252,8 @@ export default function TaskCard({
           {/* en móvil van en columna para que no se salgan de la tarjeta
               en pc van en fila con el indicador overdue al final */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-            {/* recuadro fecha — el input es invisible encima del div para que iOS pueda abrirlo */}
+            {/* recuadro fecha — input invisible encima para que iOS pueda abrirlo
+                el span muestra la fecha en formato DD-MM-YYYY */}
             <div
               className={`relative flex items-center gap-2 text-[10px] font-bold w-fit px-3 py-1 rounded-lg cursor-pointer ${
                 darkMode
@@ -257,9 +266,8 @@ export default function TaskCard({
                 {t.card_deadline}
               </span>
               <span className="text-[10px] font-bold">
-                {task.due_date || ""}
+                {formatDate(task.due_date)}
               </span>
-              {/* input transparente encima de todo — así iOS lo puede pulsar directamente */}
               <input
                 type="date"
                 value={task.due_date || ""}
@@ -270,7 +278,7 @@ export default function TaskCard({
               />
             </div>
 
-            {/* recuadro hora — mismo truco que la fecha */}
+            {/* recuadro hora — input invisible encima, deshabilitado si no hay fecha */}
             <div
               className={`relative flex items-center gap-2 text-[10px] font-bold w-fit px-3 py-1 rounded-lg transition-opacity ${
                 !task.due_date
@@ -287,7 +295,6 @@ export default function TaskCard({
               <span className="text-[10px] font-bold min-w-11.25">
                 {task.due_time || ""}
               </span>
-              {/* input transparente encima de todo, deshabilitado si no hay fecha */}
               <input
                 type="time"
                 disabled={!task.due_date}

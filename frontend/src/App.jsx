@@ -38,6 +38,14 @@ const getDisplayNameFromToken = (tkn) => {
   }
 };
 
+// convierte YYYY-MM-DD a DD-MM-YYYY para mostrar en pantalla
+// el input sigue guardando YYYY-MM-DD internamente porque es lo que necesita el backend
+const formatDate = (dateStr) => {
+  if (!dateStr) return "";
+  const [year, month, day] = dateStr.split("-");
+  return `${day}-${month}-${year}`;
+};
+
 // toast que se cierra solo a los 3 segundos
 function Toast({ message, type = "success", onClose }) {
   useEffect(() => {
@@ -597,7 +605,8 @@ function App() {
             </div>
 
             {/* móvil: fila 2 → estado + fecha + hora
-                input invisible encima del div para que iOS pueda abrir el selector nativo */}
+                input invisible encima del div para que iOS pueda abrir el selector nativo
+                el span muestra la fecha en formato DD-MM-YYYY */}
             <div className="grid grid-cols-3 gap-3 sm:hidden">
               <select
                 className={`${darkMode ? "bg-slate-800" : "bg-slate-100"} p-4 rounded-2xl text-xs font-bold outline-none ${getStatusText(formData.status)}`}
@@ -616,7 +625,9 @@ function App() {
                 className={`relative ${darkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"} p-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer`}
               >
                 <Calendar size={16} className="shrink-0" />
-                <span className="truncate">{formData.due_date || ""}</span>
+                <span className="truncate">
+                  {formatDate(formData.due_date)}
+                </span>
                 <input
                   type="date"
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -692,7 +703,8 @@ function App() {
             </div>
 
             {/* pc: fecha y hora con texto
-                input invisible encima del div para que iOS pueda abrir el selector nativo */}
+                input invisible encima del div para que iOS pueda abrir el selector nativo
+                el span muestra la fecha en formato DD-MM-YYYY */}
             <div className="hidden sm:flex justify-center gap-3">
               {/* fecha pc */}
               <div
@@ -700,7 +712,7 @@ function App() {
               >
                 <Calendar size={14} className="shrink-0" />
                 <span className="shrink-0">{t.form_date}</span>
-                <span>{formData.due_date || ""}</span>
+                <span>{formatDate(formData.due_date)}</span>
                 <input
                   type="date"
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -948,7 +960,7 @@ function App() {
               {t.empty_filters_title}
             </p>
             <p
-              className={`text-sm mt-2 mb-6 font-medium ${darkMode ? "text-slate-500" : "text-slate-400"}`}
+              className={`text-sm mt-2 mb-6 font-medium ${darkMode ? "text-slate-500" : "text-slate.400"}`}
             >
               {t.empty_filters_subtitle}
             </p>
