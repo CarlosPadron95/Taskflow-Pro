@@ -140,27 +140,6 @@ function App() {
     import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api/tasks/";
   const AUTH_URL = API_URL.replace("/tasks/", "/auth/");
 
-  // refs para abrir el datepicker al clicar en cualquier parte del recuadro
-  const formDateRef = useRef(null);
-  const formTimeRef = useRef(null);
-
-  const openFormDatePicker = () => {
-    try {
-      formDateRef.current?.showPicker();
-    } catch {
-      formDateRef.current?.focus();
-    }
-  };
-
-  const openFormTimePicker = () => {
-    if (!formData.due_date) return;
-    try {
-      formTimeRef.current?.showPicker();
-    } catch {
-      formTimeRef.current?.focus();
-    }
-  };
-
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
   }, []);
@@ -394,13 +373,6 @@ function App() {
     if (e.key === "Enter" && editingField?.field === "title") saveEditing();
   };
 
-  // para saber si hay algún filtro activo y mostrar el empty state correcto
-  const hasActiveFilters =
-    searchTerm !== "" ||
-    filterPriority !== "All" ||
-    filterStatus !== "All" ||
-    filterCategory !== "All";
-
   const clearFilters = () => {
     setSearchTerm("");
     setFilterPriority("All");
@@ -624,7 +596,8 @@ function App() {
               </select>
             </div>
 
-            {/* móvil: fila 2 → estado + icono fecha + icono hora */}
+            {/* móvil: fila 2 → estado + fecha + hora
+                input invisible encima del div para que iOS pueda abrir el selector nativo */}
             <div className="grid grid-cols-3 gap-3 sm:hidden">
               <select
                 className={`${darkMode ? "bg-slate-800" : "bg-slate-100"} p-4 rounded-2xl text-xs font-bold outline-none ${getStatusText(formData.status)}`}
@@ -637,26 +610,27 @@ function App() {
                 <option value="In Progress">{t.status_in_progress}</option>
                 <option value="Completed">{t.status_completed}</option>
               </select>
+
+              {/* fecha móvil */}
               <div
-                onClick={openFormDatePicker}
-                className={`${darkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"} p-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer`}
+                className={`relative ${darkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"} p-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer`}
               >
                 <Calendar size={16} className="shrink-0" />
+                <span className="truncate">{formData.due_date || ""}</span>
                 <input
-                  ref={formDateRef}
                   type="date"
-                  className="bg-transparent outline-none text-xs font-bold pointer-events-none w-full"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   value={formData.due_date}
                   onChange={(e) =>
                     setFormData({ ...formData, due_date: e.target.value })
                   }
                 />
               </div>
-              {/* bloqueado si no hay fecha */}
+
+              {/* hora móvil — deshabilitada si no hay fecha */}
               <div
-                onClick={openFormTimePicker}
                 title={!formData.due_date ? t.form_add_date_first : ""}
-                className={`p-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-opacity ${
+                className={`relative p-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-opacity ${
                   formData.due_date
                     ? `cursor-pointer ${darkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"}`
                     : "cursor-not-allowed opacity-40 " +
@@ -666,11 +640,11 @@ function App() {
                 }`}
               >
                 <Clock size={16} className="shrink-0" />
+                <span className="truncate">{formData.due_time || ""}</span>
                 <input
-                  ref={formTimeRef}
                   type="time"
                   disabled={!formData.due_date}
-                  className="bg-transparent outline-none text-xs font-bold pointer-events-none disabled:cursor-not-allowed w-full"
+                  className="absolute inset-0 w-full h-full opacity-0 disabled:cursor-not-allowed cursor-pointer"
                   value={formData.due_time}
                   onChange={(e) =>
                     setFormData({ ...formData, due_time: e.target.value })
@@ -717,28 +691,30 @@ function App() {
               </select>
             </div>
 
-            {/* pc: fecha y hora con texto, la hora se bloquea si no hay fecha */}
+            {/* pc: fecha y hora con texto
+                input invisible encima del div para que iOS pueda abrir el selector nativo */}
             <div className="hidden sm:flex justify-center gap-3">
+              {/* fecha pc */}
               <div
-                onClick={openFormDatePicker}
-                className={`${darkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"} p-4 rounded-2xl text-xs font-bold flex items-center gap-2 cursor-pointer`}
+                className={`relative ${darkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"} p-4 rounded-2xl text-xs font-bold flex items-center gap-2 cursor-pointer`}
               >
                 <Calendar size={14} className="shrink-0" />
                 <span className="shrink-0">{t.form_date}</span>
+                <span>{formData.due_date || ""}</span>
                 <input
-                  ref={formDateRef}
                   type="date"
-                  className="bg-transparent outline-none text-xs font-bold pointer-events-none"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   value={formData.due_date}
                   onChange={(e) =>
                     setFormData({ ...formData, due_date: e.target.value })
                   }
                 />
               </div>
+
+              {/* hora pc — deshabilitada si no hay fecha */}
               <div
-                onClick={openFormTimePicker}
                 title={!formData.due_date ? t.form_add_date_first : ""}
-                className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-2 transition-opacity ${
+                className={`relative p-4 rounded-2xl text-xs font-bold flex items-center gap-2 transition-opacity ${
                   formData.due_date
                     ? `cursor-pointer ${darkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"}`
                     : "cursor-not-allowed opacity-40 " +
@@ -749,11 +725,11 @@ function App() {
               >
                 <Clock size={14} className="shrink-0" />
                 <span className="shrink-0">{t.form_time}</span>
+                <span>{formData.due_time || ""}</span>
                 <input
-                  ref={formTimeRef}
                   type="time"
                   disabled={!formData.due_date}
-                  className="bg-transparent outline-none text-xs font-bold pointer-events-none disabled:cursor-not-allowed"
+                  className="absolute inset-0 w-full h-full opacity-0 disabled:cursor-not-allowed cursor-pointer"
                   value={formData.due_time}
                   onChange={(e) =>
                     setFormData({ ...formData, due_time: e.target.value })

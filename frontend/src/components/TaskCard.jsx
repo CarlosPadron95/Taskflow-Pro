@@ -102,27 +102,6 @@ export default function TaskCard({
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // refs para abrir el datepicker al hacer clic en cualquier parte del recuadro
-  const dateInputRef = useRef(null);
-  const timeInputRef = useRef(null);
-
-  const openDatePicker = () => {
-    try {
-      dateInputRef.current?.showPicker();
-    } catch {
-      dateInputRef.current?.focus();
-    }
-  };
-
-  const openTimePicker = () => {
-    if (!task.due_date) return;
-    try {
-      timeInputRef.current?.showPicker();
-    } catch {
-      timeInputRef.current?.focus();
-    }
-  };
-
   const startEditing = (field) => {
     setEditingField({ id: task.id, field });
     setEditingValue(task[field] || "");
@@ -265,10 +244,9 @@ export default function TaskCard({
           {/* en móvil van en columna para que no se salgan de la tarjeta
               en pc van en fila con el indicador overdue al final */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-            {/* el input tiene pointer-events-none para que el clic lo gestione el div */}
+            {/* recuadro fecha — el input es invisible encima del div para que iOS pueda abrirlo */}
             <div
-              onClick={openDatePicker}
-              className={`flex items-center gap-2 text-[10px] font-bold w-fit px-3 py-1 rounded-lg cursor-pointer ${
+              className={`relative flex items-center gap-2 text-[10px] font-bold w-fit px-3 py-1 rounded-lg cursor-pointer ${
                 darkMode
                   ? "text-blue-400 bg-blue-900/30"
                   : "text-blue-500 bg-blue-50"
@@ -278,23 +256,23 @@ export default function TaskCard({
               <span className="uppercase tracking-tighter">
                 {t.card_deadline}
               </span>
+              <span className="text-[10px] font-bold">
+                {task.due_date || ""}
+              </span>
+              {/* input transparente encima de todo — así iOS lo puede pulsar directamente */}
               <input
-                ref={dateInputRef}
                 type="date"
                 value={task.due_date || ""}
                 onChange={(e) =>
                   updateTask(task.id, "due_date", e.target.value)
                 }
-                className="bg-transparent border-none outline-none text-[10px] font-bold pointer-events-none"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
             </div>
 
-            {/* la hora se deshabilita si no hay fecha
-                min-w-[45px] para que la hora siempre se vea completa (ej: 21:00) */}
+            {/* recuadro hora — mismo truco que la fecha */}
             <div
-              onClick={openTimePicker}
-              title={!task.due_date ? t.form_add_date_first : ""}
-              className={`flex items-center gap-2 text-[10px] font-bold w-fit px-3 py-1 rounded-lg transition-opacity ${
+              className={`relative flex items-center gap-2 text-[10px] font-bold w-fit px-3 py-1 rounded-lg transition-opacity ${
                 !task.due_date
                   ? "opacity-40 cursor-not-allowed"
                   : darkMode
@@ -306,24 +284,27 @@ export default function TaskCard({
               <span className="uppercase tracking-tighter shrink-0">
                 {t.card_time}
               </span>
+              <span className="text-[10px] font-bold min-w-11.25">
+                {task.due_time || ""}
+              </span>
+              {/* input transparente encima de todo, deshabilitado si no hay fecha */}
               <input
-                ref={timeInputRef}
                 type="time"
                 disabled={!task.due_date}
                 value={task.due_time || ""}
                 onChange={(e) =>
                   updateTask(task.id, "due_time", e.target.value)
                 }
-                className="bg-transparent border-none outline-none text-[10px] font-bold pointer-events-none disabled:cursor-not-allowed min-w-11.25"
+                className="absolute inset-0 w-full h-full opacity-0 disabled:cursor-not-allowed cursor-pointer"
               />
-              {/* botón para borrar la hora, stopPropagation para que no abra el picker */}
+              {/* botón para borrar la hora — z-10 para que quede encima del input invisible */}
               {task.due_time && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     updateTask(task.id, "due_time", "");
                   }}
-                  className="ml-1 shrink-0 hover:text-red-500 transition-colors font-black leading-none"
+                  className="relative z-10 ml-1 shrink-0 hover:text-red-500 transition-colors font-black leading-none"
                 >
                   ✕
                 </button>
