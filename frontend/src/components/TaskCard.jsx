@@ -50,28 +50,28 @@ const getStatusClasses = (s) => {
 // calcula si la tarea está vencida según fecha y hora local
 // si tiene hora, mira fecha+hora exacta / si no, cuenta hasta el final del día
 const getOverdueState = (task) => {
-  if (!task.due_date || task.status === "Completed") {
+  if (!task.due_date || task.status === "Completed")
     return { isOverdue: false };
-  }
   const now = new Date();
   const [year, month, day] = task.due_date.split("-").map(Number);
   if (task.due_time) {
     const [hours, minutes] = task.due_time.split(":").map(Number);
-    const deadline = new Date(year, month - 1, day, hours, minutes);
-    return { isOverdue: deadline < now };
-  } else {
-    const deadlineDay = new Date(year, month - 1, day, 23, 59, 59, 999);
-    return { isOverdue: deadlineDay < now };
+    return { isOverdue: new Date(year, month - 1, day, hours, minutes) < now };
   }
+  return { isOverdue: new Date(year, month - 1, day, 23, 59, 59, 999) < now };
 };
 
 // convierte YYYY-MM-DD a DD-MM-YYYY para mostrar en pantalla
-// el input sigue guardando YYYY-MM-DD internamente porque es lo que necesita el backend
 const formatDate = (dateStr) => {
   if (!dateStr) return "";
   const [year, month, day] = dateStr.split("-");
   return `${day}-${month}-${year}`;
 };
+
+// detecta iOS para usar el truco del input invisible
+// en iOS showPicker() no funciona pero el input nativo sí al hacer tap
+// en PC el input tiene tamaño 0 y showPicker() lo abre al hacer click en el div
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
 export default function TaskCard({
   task,
@@ -99,7 +99,6 @@ export default function TaskCard({
   const isPendingDelete = confirmDeleteId === task.id;
 
   // en móvil el drag solo se activa desde el handle para no interferir con el scroll
-  // en pc se puede arrastrar desde cualquier parte de la tarjeta como antes
   const dragControls = useDragControls();
   const [isMobile, setIsMobile] = useState(false);
 
@@ -109,6 +108,28 @@ export default function TaskCard({
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  // refs para showPicker() en PC
+  const dateInputRef = useRef(null);
+  const timeInputRef = useRef(null);
+
+  const openDatePicker = () => {
+    if (isIOS) return; // en iOS lo gestiona el input invisible
+    try {
+      dateInputRef.current?.showPicker();
+    } catch {
+      dateInputRef.current?.focus();
+    }
+  };
+
+  const openTimePicker = () => {
+    if (isIOS || !task.due_date) return;
+    try {
+      timeInputRef.current?.showPicker();
+    } catch {
+      timeInputRef.current?.focus();
+    }
+  };
 
   const startEditing = (field) => {
     setEditingField({ id: task.id, field });
@@ -127,9 +148,8 @@ export default function TaskCard({
       exit={{ opacity: 0, scale: 0.9 }}
       className={`relative ${darkMode ? "bg-slate-900 border-slate-800" : "bg-white border-slate-100"} border-l-[6px] ${prio.border} rounded-4xl p-6 shadow-sm border group ${!isMobile ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
-      {/* overdue en móvil — posición absoluta centrada en el espacio del borde izquierdo
-          icono arriba, texto debajo con letras rectas, parpadea para llamar la atención
-          no afecta al posicionamiento del resto de la tarjeta */}
+      {/* overdue en móvil — posición absoluta centrada en el borde izquierdo
+          parpadea para llamar la atención, no afecta al layout */}
       {isOverdue && (
         <div className="sm:hidden absolute left-0 top-0 bottom-0 w-8 flex flex-col items-center justify-center gap-1 text-red-500 animate-pulse">
           <AlertTriangle size={13} />
@@ -140,7 +160,7 @@ export default function TaskCard({
       )}
 
       <div className="flex items-start gap-3">
-        {/* handle de arrastre — solo visible en móvil, sm:hidden lo oculta en pc */}
+        {/* handle de arrastre — solo en móvil, sm:hidden lo oculta en pc */}
         <div
           onPointerDown={(e) => dragControls.start(e)}
           className={`mt-1 shrink-0 cursor-grab active:cursor-grabbing touch-none p-1 rounded-lg opacity-30 group-hover:opacity-70 transition-opacity sm:hidden ${darkMode ? "text-slate-400" : "text-slate-400"}`}
@@ -188,7 +208,7 @@ export default function TaskCard({
               </h3>
             )}
 
-            {/* badges de prioridad, estado y categoría — son selects para poder cambiarlos directamente */}
+            {/* badges — selects para cambiar directamente */}
             <select
               value={task.priority}
               onChange={(e) => updateTask(task.id, "priority", e.target.value)}
@@ -249,12 +269,13 @@ export default function TaskCard({
             </p>
           )}
 
-          {/* en móvil van en columna para que no se salgan de la tarjeta
-              en pc van en fila con el indicador overdue al final */}
+          {/* en móvil en columna, en pc en fila con overdue al final */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-            {/* recuadro fecha — input invisible encima para que iOS pueda abrirlo
-                el span muestra la fecha en formato DD-MM-YYYY */}
+            {/* recuadro fecha
+                PC: click en el div llama a showPicker() — input con tamaño 0 en el DOM
+                iOS: input invisible cubre el div y abre el selector nativo al hacer tap */}
             <div
+              onClick={openDatePicker}
               className={`relative flex items-center gap-2 text-[10px] font-bold w-fit px-3 py-1 rounded-lg cursor-pointer ${
                 darkMode
                   ? "text-blue-400 bg-blue-900/30"
@@ -268,18 +289,26 @@ export default function TaskCard({
               <span className="text-[10px] font-bold">
                 {formatDate(task.due_date)}
               </span>
+              {/* opacity-0 w-0 h-0 — existe en el DOM para showPicker() pero no ocupa espacio */}
               <input
+                ref={dateInputRef}
                 type="date"
                 value={task.due_date || ""}
                 onChange={(e) =>
                   updateTask(task.id, "due_date", e.target.value)
                 }
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                className={
+                  isIOS
+                    ? "absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    : "opacity-0 w-0 h-0 absolute"
+                }
               />
             </div>
 
-            {/* recuadro hora — input invisible encima, deshabilitado si no hay fecha */}
+            {/* recuadro hora — mismo comportamiento que fecha */}
             <div
+              onClick={openTimePicker}
+              title={!task.due_date ? t.form_add_date_first : ""}
               className={`relative flex items-center gap-2 text-[10px] font-bold w-fit px-3 py-1 rounded-lg transition-opacity ${
                 !task.due_date
                   ? "opacity-40 cursor-not-allowed"
@@ -295,16 +324,22 @@ export default function TaskCard({
               <span className="text-[10px] font-bold min-w-11.25">
                 {task.due_time || ""}
               </span>
+              {/* opacity-0 w-0 h-0 — existe en el DOM para showPicker() pero no ocupa espacio */}
               <input
+                ref={timeInputRef}
                 type="time"
                 disabled={!task.due_date}
                 value={task.due_time || ""}
                 onChange={(e) =>
                   updateTask(task.id, "due_time", e.target.value)
                 }
-                className="absolute inset-0 w-full h-full opacity-0 disabled:cursor-not-allowed cursor-pointer"
+                className={
+                  isIOS
+                    ? "absolute inset-0 w-full h-full opacity-0 disabled:cursor-not-allowed cursor-pointer"
+                    : "opacity-0 w-0 h-0 absolute"
+                }
               />
-              {/* botón para borrar la hora — z-10 para que quede encima del input invisible */}
+              {/* botón para borrar la hora — z-10 para que quede encima del input de iOS */}
               {task.due_time && (
                 <button
                   onClick={(e) => {
@@ -318,7 +353,7 @@ export default function TaskCard({
               )}
             </div>
 
-            {/* overdue en pc — icono + texto en horizontal a la derecha del campo hora, parpadea */}
+            {/* overdue en pc — icono + texto a la derecha del campo hora, parpadea */}
             {isOverdue && (
               <div className="hidden sm:flex items-center gap-1 text-red-500 animate-pulse">
                 <AlertTriangle size={14} />
@@ -341,8 +376,7 @@ export default function TaskCard({
         )}
       </div>
 
-      {/* botones de confirmación fuera del flex principal para que en móvil
-          no se salgan de la pantalla */}
+      {/* botones de confirmación — debajo en móvil para no salirse de la tarjeta */}
       {isPendingDelete && (
         <div className="flex gap-2 mt-4 w-full sm:mt-0 sm:w-auto sm:absolute sm:right-6 sm:top-1/2 sm:-translate-y-1/2">
           <button

@@ -1,3 +1,4 @@
+// App.jsx
 import { useEffect, useState, useCallback, useRef } from "react";
 import axios from "axios";
 import { Reorder, AnimatePresence, motion } from "framer-motion";
@@ -39,12 +40,16 @@ const getDisplayNameFromToken = (tkn) => {
 };
 
 // convierte YYYY-MM-DD a DD-MM-YYYY para mostrar en pantalla
-// el input sigue guardando YYYY-MM-DD internamente porque es lo que necesita el backend
 const formatDate = (dateStr) => {
   if (!dateStr) return "";
   const [year, month, day] = dateStr.split("-");
   return `${day}-${month}-${year}`;
 };
+
+// detecta iOS para usar el truco del input invisible
+// en iOS showPicker() no funciona pero el input nativo sí al hacer tap
+// en PC usamos showPicker() con ref — el input existe pero tiene tamaño 0
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
 // toast que se cierra solo a los 3 segundos
 function Toast({ message, type = "success", onClose }) {
@@ -131,7 +136,6 @@ function App() {
   const prevDoneRef = useRef(0);
 
   // este estado no se usa directamente, solo sirve para forzar un re-render cada minuto
-  // y que las tarjetas recalculen si están vencidas
   const [, setTick] = useState(0);
 
   const [formData, setFormData] = useState({
@@ -147,6 +151,29 @@ function App() {
   const API_URL =
     import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api/tasks/";
   const AUTH_URL = API_URL.replace("/tasks/", "/auth/");
+
+  // refs para abrir el datepicker en PC con showPicker()
+  // en iOS no se usan porque el input invisible cubre el div directamente
+  const formDateRef = useRef(null);
+  const formTimeRef = useRef(null);
+
+  const openFormDatePicker = () => {
+    if (isIOS) return;
+    try {
+      formDateRef.current?.showPicker();
+    } catch {
+      formDateRef.current?.focus();
+    }
+  };
+
+  const openFormTimePicker = () => {
+    if (isIOS || !formData.due_date) return;
+    try {
+      formTimeRef.current?.showPicker();
+    } catch {
+      formTimeRef.current?.focus();
+    }
+  };
 
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -425,7 +452,6 @@ function App() {
     return 0;
   });
 
-  // solo se usan en el formulario, las tarjetas tienen sus propias funciones
   const getPriorityText = (p) => {
     if (p === "High") return "text-red-600";
     if (p === "Medium") return "text-orange-500";
@@ -454,7 +480,6 @@ function App() {
             TASKFLOW <span className="text-blue-600 font-light">PRO</span>
           </h1>
           <div className="flex items-center gap-3">
-            {/* botón de idioma — también se pasa a Login y Register */}
             <button
               onClick={toggleLang}
               className={`flex items-center gap-2 px-3 py-2 rounded-2xl text-xs font-black transition-all hover:scale-105 active:scale-95 ${
@@ -467,7 +492,6 @@ function App() {
               {lang === "es" ? "ES" : "EN"}
             </button>
 
-            {/* menú de usuario */}
             <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
@@ -605,8 +629,7 @@ function App() {
             </div>
 
             {/* móvil: fila 2 → estado + fecha + hora
-                input invisible encima del div para que iOS pueda abrir el selector nativo
-                el span muestra la fecha en formato DD-MM-YYYY */}
+                input invisible cubre el div para que iOS abra el selector nativo al hacer tap */}
             <div className="grid grid-cols-3 gap-3 sm:hidden">
               <select
                 className={`${darkMode ? "bg-slate-800" : "bg-slate-100"} p-4 rounded-2xl text-xs font-bold outline-none ${getStatusText(formData.status)}`}
@@ -702,20 +725,27 @@ function App() {
               </select>
             </div>
 
-            {/* pc: fecha y hora con texto
-                input invisible encima del div para que iOS pueda abrir el selector nativo
-                el span muestra la fecha en formato DD-MM-YYYY */}
+            {/* pc: fecha y hora
+                PC: el div captura el click y llama a showPicker() — el input tiene tamaño 0
+                iOS: el input invisible cubre todo el div y abre el selector nativo al hacer tap */}
             <div className="hidden sm:flex justify-center gap-3">
               {/* fecha pc */}
               <div
+                onClick={openFormDatePicker}
                 className={`relative ${darkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"} p-4 rounded-2xl text-xs font-bold flex items-center gap-2 cursor-pointer`}
               >
                 <Calendar size={14} className="shrink-0" />
                 <span className="shrink-0">{t.form_date}</span>
                 <span>{formatDate(formData.due_date)}</span>
+                {/* opacity-0 w-0 h-0 — existe en el DOM para showPicker() pero no ocupa espacio */}
                 <input
+                  ref={formDateRef}
                   type="date"
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  className={
+                    isIOS
+                      ? "absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      : "opacity-0 w-0 h-0 absolute"
+                  }
                   value={formData.due_date}
                   onChange={(e) =>
                     setFormData({ ...formData, due_date: e.target.value })
@@ -725,6 +755,7 @@ function App() {
 
               {/* hora pc — deshabilitada si no hay fecha */}
               <div
+                onClick={openFormTimePicker}
                 title={!formData.due_date ? t.form_add_date_first : ""}
                 className={`relative p-4 rounded-2xl text-xs font-bold flex items-center gap-2 transition-opacity ${
                   formData.due_date
@@ -738,10 +769,16 @@ function App() {
                 <Clock size={14} className="shrink-0" />
                 <span className="shrink-0">{t.form_time}</span>
                 <span>{formData.due_time || ""}</span>
+                {/* opacity-0 w-0 h-0 — existe en el DOM para showPicker() pero no ocupa espacio */}
                 <input
+                  ref={formTimeRef}
                   type="time"
                   disabled={!formData.due_date}
-                  className="absolute inset-0 w-full h-full opacity-0 disabled:cursor-not-allowed cursor-pointer"
+                  className={
+                    isIOS
+                      ? "absolute inset-0 w-full h-full opacity-0 disabled:cursor-not-allowed cursor-pointer"
+                      : "opacity-0 w-0 h-0 absolute"
+                  }
                   value={formData.due_time}
                   onChange={(e) =>
                     setFormData({ ...formData, due_time: e.target.value })
@@ -960,7 +997,7 @@ function App() {
               {t.empty_filters_title}
             </p>
             <p
-              className={`text-sm mt-2 mb-6 font-medium ${darkMode ? "text-slate-500" : "text-slate.400"}`}
+              className={`text-sm mt-2 mb-6 font-medium ${darkMode ? "text-slate-500" : "text-slate-400"}`}
             >
               {t.empty_filters_subtitle}
             </p>
@@ -1046,11 +1083,7 @@ function App() {
               exit={{ scale: 0.85, opacity: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 25 }}
               onClick={(e) => e.stopPropagation()}
-              className={`w-full max-w-sm mx-4 p-8 rounded-4xl shadow-2xl border ${
-                darkMode
-                  ? "bg-slate-900 border-slate-700"
-                  : "bg-white border-slate-100"
-              }`}
+              className={`w-full max-w-sm mx-4 p-8 rounded-4xl shadow-2xl border ${darkMode ? "bg-slate-900 border-slate-700" : "bg-white border-slate-100"}`}
             >
               <p className="text-4xl mb-4 text-center">🗑️</p>
               <h2 className="text-xl font-black text-center tracking-tight mb-2">
@@ -1068,11 +1101,7 @@ function App() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowClearAllModal(false)}
-                  className={`flex-1 py-3 rounded-2xl text-sm font-black transition-all active:scale-95 ${
-                    darkMode
-                      ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                  className={`flex-1 py-3 rounded-2xl text-sm font-black transition-all active:scale-95 ${darkMode ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
                 >
                   {t.modal_cancel}
                 </button>
